@@ -1,0 +1,163 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 97%;
+    --foreground: 0 0% 13%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 13%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 13%;
+
+    --primary: 152 100% 36%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 45 100% 51%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 0 0% 94%;
+    --muted-foreground: 0 0% 55%;
+
+    --accent: 152 40% 92%;
+    --accent-foreground: 152 100% 30%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 89%;
+    --input: 0 0% 89%;
+    --ring: 152 100% 36%;
+
+    --radius: 0.75rem;
+
+    --badge-event: 152 100% 36%;
+    --badge-deal: 25 95% 53%;
+    --badge-meeting: 152 70% 40%;
+    --badge-dividend: 270 60% 55%;
+    --badge-report: 210 80% 50%;
+
+    --tab-active: 152 100% 36%;
+    --tab-inactive: 0 0% 55%;
+
+    --chip-selected-bg: 160 84% 39%;
+    --chip-selected-fg: 0 0% 100%;
+    --chip-default-bg: 0 0% 100%;
+    --chip-default-fg: 0 0% 20%;
+    --chip-default-border: 0 0% 85%;
+
+    --chat-bubble-other: 0 0% 93%;
+    --chat-bubble-self: 152 100% 95%;
+
+    --news-positive: 156 100% 38%;
+    --news-positive-soft: 159 39% 89%;
+    --news-positive-soft-border: 158 45% 78%;
+    --news-negative: 0 88% 60%;
+    --news-negative-soft: 356 44% 90%;
+    --news-negative-soft-border: 356 48% 84%;
+    --news-blue: 238 89% 64%;
+    --news-blue-soft: 234 100% 95%;
+    --news-border-soft: 214 32% 88%;
+    --news-surface: 0 0% 96%;
+    --news-subtle: 220 24% 49%;
+
+    --card-shadow: 0 1px 4px 0 rgba(0, 0, 0, 0.06);
+
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  .dark {
+    --background: 0 0% 10%;
+    --foreground: 0 0% 93%;
+
+    --card: 0 0% 14%;
+    --card-foreground: 0 0% 93%;
+
+    --popover: 0 0% 14%;
+    --popover-foreground: 0 0% 93%;
+
+    --primary: 152 100% 36%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 45 100% 51%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 60%;
+
+    --accent: 152 30% 18%;
+    --accent-foreground: 152 80% 70%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 22%;
+    --input: 0 0% 22%;
+    --ring: 152 100% 36%;
+
+    --chip-selected-bg: 160 84% 39%;
+    --chip-selected-fg: 0 0% 100%;
+    --chip-default-bg: 0 0% 18%;
+    --chip-default-fg: 0 0% 80%;
+    --chip-default-border: 0 0% 28%;
+
+    --chat-bubble-other: 0 0% 20%;
+    --chat-bubble-self: 152 40% 15%;
+
+    --news-positive: 156 100% 38%;
+    --news-positive-soft: 156 30% 18%;
+    --news-positive-soft-border: 156 35% 28%;
+    --news-negative: 0 88% 60%;
+    --news-negative-soft: 356 30% 18%;
+    --news-negative-soft-border: 356 35% 28%;
+    --news-blue: 238 89% 64%;
+    --news-blue-soft: 234 40% 18%;
+    --news-border-soft: 214 20% 25%;
+    --news-surface: 0 0% 14%;
+    --news-subtle: 220 15% 60%;
+
+    --card-shadow: 0 1px 4px 0 rgba(0, 0, 0, 0.3);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  body::-webkit-scrollbar {
+    display: none;
+  }
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .card-shadow {
+    box-shadow: var(--card-shadow);
+  }
+}
