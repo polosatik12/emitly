@@ -20,41 +20,44 @@ export function FiltersModal({ open, onClose }: FiltersModalProps) {
   const [selectedPeriod, setSelectedPeriod] = useState("Всё время");
   const [selectedSector, setSelectedSector] = useState("Все секторы");
 
-  if (!open) return null;
-
   return (
-    <div
-      className={`fixed inset-0 bg-black/25 z-[60] flex ${isMobile ? "items-end" : "items-center"} justify-center`}
-      onClick={onClose}
-    >
+    <>
       <div
-        className={`bg-card max-h-[85vh] overflow-y-auto animate-slide-up flex flex-col ${
-          isMobile
-            ? "w-full max-w-lg rounded-t-[24px] p-5 pb-5"
-            : "w-full max-w-[520px] rounded-2xl p-6 shadow-xl"
-        }`}
-        onClick={(e) => e.stopPropagation()}
+        className={`fixed inset-0 bg-background/95 z-[60] ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        onClick={onClose}
+      />
+      <div
+        className={`fixed inset-0 z-[60] flex ${isMobile ? "items-end" : "items-center"} justify-center transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`}
       >
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-[17px] font-bold text-foreground">Фильтры</h2>
-          <button onClick={onClose} className="text-muted-foreground p-1">
-            <X className="w-[18px] h-[18px]" />
+        <div
+          className={`bg-card max-h-[85vh] overflow-y-auto flex flex-col transition-transform duration-300 ease-out ${
+            isMobile
+              ? `w-full max-w-lg rounded-t-[24px] p-5 pb-5 ${open ? "translate-y-0" : "translate-y-full"}`
+              : `w-full max-w-[520px] rounded-2xl p-6 shadow-xl ${open ? "scale-100" : "scale-95"}`
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-[17px] font-bold text-foreground">Фильтры</h2>
+            <button onClick={onClose} className="text-muted-foreground p-1 active:scale-90 hover:text-foreground transition-all duration-150">
+              <X className="w-[18px] h-[18px]" />
+            </button>
+          </div>
+
+          <Section title="Категория" items={categories} selected={selectedCategory} onSelect={setSelectedCategory} />
+          <Section title="Источник" items={sources} selected={selectedSource} onSelect={setSelectedSource} />
+          <Section title="Период" items={periods} selected={selectedPeriod} onSelect={setSelectedPeriod} />
+          <Section title="Сектор" items={sectors} selected={selectedSector} onSelect={setSelectedSector} />
+
+          <button
+            onClick={onClose}
+            className="w-full mt-0 bg-chip-selected-bg text-white rounded-[14px] py-[13px] font-semibold text-[14.5px] active:scale-[0.97] hover:brightness-110 transition-all duration-150"
+          >
+            Применить
           </button>
         </div>
-
-        <Section title="Категория" items={categories} selected={selectedCategory} onSelect={setSelectedCategory} />
-        <Section title="Источник" items={sources} selected={selectedSource} onSelect={setSelectedSource} />
-        <Section title="Период" items={periods} selected={selectedPeriod} onSelect={setSelectedPeriod} />
-        <Section title="Сектор" items={sectors} selected={selectedSector} onSelect={setSelectedSector} />
-
-        <button
-          onClick={onClose}
-          className="w-full mt-0 bg-chip-selected-bg text-white rounded-[14px] py-[13px] font-semibold text-[14.5px]"
-        >
-          Применить
-        </button>
       </div>
-    </div>
+    </>
   );
 }
 

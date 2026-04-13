@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, SlidersHorizontal, BellOff, Bell } from "lucide-react";
 import { getEmitterByTicker } from "@/data/emitters";
-import { mockNews } from "@/pages/NewsPage";
+import { useNews, type NewsItem } from "@/hooks/useNews";
 import { NewsCard } from "@/components/NewsCard";
 import { FiltersModal } from "@/components/FiltersModal";
 import NewsDetailDrawer from "@/components/NewsDetailDrawer";
@@ -13,17 +13,18 @@ export default function EmitterProfilePage() {
   const { ticker } = useParams<{ ticker: string }>();
   const navigate = useNavigate();
   const emitter = getEmitterByTicker(ticker || "");
+  const { news: allNews } = useNews();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("Все");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [selectedNews, setSelectedNews] = useState<typeof mockNews[0] | null>(null);
+  const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   const [notifications, setNotifications] = useState(false);
 
   // Filter news by this emitter's ticker
   const emitterNews = useMemo(() => {
     if (!ticker) return [];
-    return mockNews.filter((n) => {
+    return allNews.filter((n) => {
       const matchesTicker = n.ticker === ticker.toUpperCase();
       const matchesSearch =
         n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -31,7 +32,7 @@ export default function EmitterProfilePage() {
       const matchesCategory = activeCategory === "Все" || n.category === activeCategory;
       return matchesTicker && matchesSearch && matchesCategory;
     });
-  }, [ticker, searchQuery, activeCategory]);
+  }, [ticker, searchQuery, activeCategory, allNews]);
 
   // Generate mock chart data points
   const chartPoints = useMemo(() => {

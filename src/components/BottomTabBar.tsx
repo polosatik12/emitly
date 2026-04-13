@@ -19,12 +19,12 @@ export function BottomTabBar() {
           <button
             key={tab.path}
             onClick={() => navigate(tab.path)}
-            className={`flex flex-col items-center justify-center gap-[1px] w-full h-full transition-colors ${
+            className={`flex flex-col items-center justify-center gap-[1px] w-full h-full transition-all duration-200 active:scale-90 ${
               isActive ? "text-primary" : "text-muted-foreground"
             }`}
           >
-            <tab.icon className="w-[20px] h-[20px]" strokeWidth={isActive ? 2.2 : 1.6} />
-            <span className={`text-[10px] leading-tight ${isActive ? "font-semibold" : "font-medium"}`}>{tab.label}</span>
+            <tab.icon className={`w-[20px] h-[20px] transition-transform duration-200 ${isActive ? "animate-tab-pulse" : ""}`} strokeWidth={isActive ? 2.2 : 1.6} />
+            <span className={`text-[10px] leading-tight transition-all duration-200 ${isActive ? "font-semibold" : "font-medium"}`}>{tab.label}</span>
           </button>
         );
       })}

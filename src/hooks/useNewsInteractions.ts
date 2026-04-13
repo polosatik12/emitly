@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface CommentRow {
@@ -14,6 +14,27 @@ interface VoteAgg {
   long: number;
   short: number;
 }
+
+// Cache user to avoid repeated network calls
+let cachedUser: { id: string } | null = null;
+let userPromise: Promise<{ id: string } | null> | null = null;
+
+async function getCachedUser() {
+  if (cachedUser) return cachedUser;
+  if (!userPromise) {
+    userPromise = supabase.auth.getUser().then(({ data: { user } }) => {
+      cachedUser = user ? { id: user.id } : null;
+      return cachedUser;
+    });
+  }
+  return userPromise;
+}
+
+// Listen for auth changes to invalidate cache
+supabase.auth.onAuthStateChange(() => {
+  cachedUser = null;
+  userPromise = null;
+});
 
 export function useNewsComments(newsId: string | null) {
   const [comments, setComments] = useState<(CommentRow & { display_name: string })[]>([]);
@@ -55,7 +76,6 @@ export function useNewsComments(newsId: string | null) {
     fetchComments();
   }, [fetchComments]);
 
-  // Realtime subscription
   useEffect(() => {
     if (!newsId) return;
     const channel = supabase
@@ -70,7 +90,7 @@ export function useNewsComments(newsId: string | null) {
   }, [newsId, fetchComments]);
 
   const addComment = async (text: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCachedUser();
     if (!user || !newsId) return false;
     const { error } = await supabase.from("news_comments").insert({
       news_id: newsId,
@@ -90,7 +110,7 @@ export function useNewsBookmark(newsId: string | null) {
     if (!newsId) return;
     let mounted = true;
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCachedUser();
       if (!user || !mounted) return;
       const { data } = await supabase
         .from("news_bookmarks")
@@ -104,7 +124,7 @@ export function useNewsBookmark(newsId: string | null) {
   }, [newsId]);
 
   const toggleBookmark = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCachedUser();
     if (!user || !newsId) return;
     if (isBookmarked) {
       await supabase.from("news_bookmarks").delete().eq("news_id", newsId).eq("user_id", user.id);
@@ -121,9 +141,11 @@ export function useNewsBookmark(newsId: string | null) {
 export function useNewsVotes(newsId: string | null) {
   const [votes, setVotes] = useState<VoteAgg>({ long: 0, short: 0 });
   const [userVote, setUserVote] = useState<"long" | "short" | null>(null);
+  const votingRef = useRef(false);
+  const hasVoteInDb = useRef(false);
 
   const fetchVotes = useCallback(async () => {
-    if (!newsId) return;
+    if (!newsId || votingRef.current) return;
     const { data } = await supabase
       .from("news_votes")
       .select("vote")
@@ -134,17 +156,20 @@ export function useNewsVotes(newsId: string | null) {
       if (v.vote === "long") agg.long++;
       else agg.short++;
     });
-    setVotes(agg);
+    if (!votingRef.current) setVotes(agg);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
+    const user = await getCachedUser();
+    if (user && !votingRef.current) {
       const { data: uv } = await supabase
         .from("news_votes")
         .select("vote")
         .eq("news_id", newsId)
         .eq("user_id", user.id)
         .maybeSingle();
-      setUserVote(uv?.vote as "long" | "short" | null);
+      if (!votingRef.current) {
+        setUserVote(uv?.vote as "long" | "short" | null);
+        hasVoteInDb.current = !!uv;
+      }
     }
   }, [newsId]);
 
@@ -152,41 +177,54 @@ export function useNewsVotes(newsId: string | null) {
     fetchVotes();
   }, [fetchVotes]);
 
-  useEffect(() => {
-    if (!newsId) return;
-    const channel = supabase
-      .channel(`votes-${newsId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "news_votes", filter: `news_id=eq.${newsId}` },
-        () => fetchVotes()
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [newsId, fetchVotes]);
+  // No realtime for votes — it causes flicker and race conditions
+  // Other users' votes will appear on next drawer open
 
   const vote = async (direction: "long" | "short") => {
-    const { data: { user } } = await supabase.auth.getUser();
+    // Mutex: prevent concurrent votes
+    if (votingRef.current) return;
+    
+    const user = await getCachedUser();
     if (!user || !newsId) return;
+    if (userVote === direction) return;
 
-    if (userVote === direction) return; // already voted same
+    votingRef.current = true;
 
-    if (userVote) {
-      // Update existing vote
-      await supabase
+    const prevVote = userVote;
+    const prevVotes = { ...votes };
+    const prevHasInDb = hasVoteInDb.current;
+    
+    setUserVote(direction);
+    setVotes(prev => {
+      const next = { ...prev };
+      if (prevVote) next[prevVote]--;
+      next[direction]++;
+      return next;
+    });
+
+    let error;
+    if (hasVoteInDb.current) {
+      ({ error } = await supabase
         .from("news_votes")
         .update({ vote: direction })
         .eq("news_id", newsId)
-        .eq("user_id", user.id);
+        .eq("user_id", user.id));
     } else {
-      await supabase.from("news_votes").insert({
+      ({ error } = await supabase.from("news_votes").insert({
         news_id: newsId,
         user_id: user.id,
         vote: direction,
-      });
+      }));
+      if (!error) hasVoteInDb.current = true;
     }
-    setUserVote(direction);
-    await fetchVotes();
+
+    if (error) {
+      setUserVote(prevVote);
+      setVotes(prevVotes);
+      hasVoteInDb.current = prevHasInDb;
+    }
+
+    votingRef.current = false;
   };
 
   const total = votes.long + votes.short;

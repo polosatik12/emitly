@@ -1,8 +1,23 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, DollarSign } from "lucide-react";
 import RequisitesModal from "@/components/RequisitesModal";
 import { downloadFile } from "@/lib/download";
+
+interface CurrencyRate {
+  symbol: string;
+  label: string;
+  value: string;
+  change: number;
+}
+
+const currencyRates: CurrencyRate[] = [
+  { symbol: "USD", label: "Доллар", value: "83.25 ₽", change: -0.18 },
+  { symbol: "EUR", label: "Евро", value: "90.64 ₽", change: 0.12 },
+  { symbol: "CNY", label: "Юань", value: "11.42 ₽", change: -0.05 },
+  { symbol: "XAU", label: "Золото", value: "2 412 $", change: 0.74 },
+  { symbol: "XAG", label: "Серебро", value: "31.18 $", change: 1.12 },
+];
 
 // All emitters sorted by change% descending (leaders first)
 import logoSber from "@/assets/logo-sber.jpg";
@@ -134,7 +149,32 @@ export default function StockLeadersWidget() {
   const visibleEmitters = expanded ? allEmitters : allEmitters.slice(0, INITIAL_COUNT);
 
   return (
-    <aside className="w-[300px] shrink-0 sticky top-0 overflow-y-auto max-h-screen pt-6 pr-4 pb-4">
+    <aside className="w-[340px] shrink-0 sticky top-0 overflow-y-auto max-h-screen pt-6 pr-4 pb-4">
+      {/* Currency & Commodities */}
+      <div className="p-5 rounded-2xl border border-border bg-card shadow-sm mb-4">
+        <div className="flex items-center gap-2 mb-4">
+          <DollarSign className="w-5 h-5 text-primary" strokeWidth={2} />
+          <h2 className="text-[16px] font-bold text-foreground">Курсы валют</h2>
+        </div>
+        <div className="space-y-2.5">
+          {currencyRates.map((rate) => (
+            <div key={rate.symbol} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-muted/50 transition-colors">
+              <div>
+                <span className="text-[14px] font-bold text-foreground">{rate.symbol}</span>
+                <span className="text-[12px] text-muted-foreground ml-2">{rate.label}</span>
+              </div>
+              <div className="text-right">
+                <span className="text-[14px] font-semibold text-foreground">{rate.value}</span>
+                <span className={`text-[12px] font-medium ml-2 ${rate.change >= 0 ? "text-primary" : "text-destructive"}`}>
+                  {rate.change >= 0 ? "+" : ""}{rate.change.toFixed(2)}%
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Stock Leaders */}
       <div className="p-5 rounded-2xl border border-border bg-card shadow-sm">
         {/* Header */}
         <div className="flex items-center gap-2 mb-5">
@@ -150,18 +190,18 @@ export default function StockLeadersWidget() {
               onClick={() => navigate(`/emitter/${item.ticker}`)}
               className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer"
             >
-              <span className="text-[13px] text-muted-foreground font-medium w-4 shrink-0">{index + 1}</span>
+              <span className="text-[13px] text-muted-foreground font-medium w-5 shrink-0">{index + 1}</span>
               <img
                 src={item.logo}
                 alt={item.name}
-                className="w-9 h-9 rounded-full object-cover shrink-0"
+                className="w-10 h-10 rounded-full object-cover shrink-0"
               />
               <div className="flex-1 min-w-0">
                 <p className="text-[14px] font-bold text-foreground">{item.ticker}</p>
                 <p className="text-[12px] text-muted-foreground truncate">{item.name}</p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-[13px] font-semibold text-foreground">{item.price}</p>
+                <p className="text-[14px] font-semibold text-foreground">{item.price}</p>
                 <p className={`text-[12px] font-medium ${item.changePercent >= 0 ? "text-primary" : "text-destructive"}`}>
                   {item.changePercent >= 0 ? "+" : ""}{item.changePercent.toFixed(2)}%
                 </p>

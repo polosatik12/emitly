@@ -2,14 +2,15 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Bookmark, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { mockNews } from "@/pages/NewsPage";
+import { useNews, type NewsItem } from "@/hooks/useNews";
 import { NewsCard } from "@/components/NewsCard";
 import NewsDetailDrawer from "@/components/NewsDetailDrawer";
 
 export default function SavedNewsPage() {
+  const { news: allNews } = useNews();
   const [bookmarkedIds, setBookmarkedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedNews, setSelectedNews] = useState<typeof mockNews[0] | null>(null);
+  const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -28,7 +29,7 @@ export default function SavedNewsPage() {
     return () => { mounted = false; };
   }, []);
 
-  const savedNews = mockNews.filter((n) => bookmarkedIds.includes(n.id));
+  const savedNews = allNews.filter((n) => bookmarkedIds.includes(n.id));
 
   const removeBookmark = async (newsId: string) => {
     const { data: { user } } = await supabase.auth.getUser();

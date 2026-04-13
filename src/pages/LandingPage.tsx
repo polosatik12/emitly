@@ -1,32 +1,25 @@
 import { useNavigate } from "react-router-dom";
 import { Newspaper, BarChart3, Bell, FileText, Calendar, MessageCircle, LogIn, UserPlus } from "lucide-react";
+import { getEmitterByTicker } from "@/data/emitters";
 
 const newsItems = [
   {
     ticker: "SBER",
-    company: "Сбербанк",
-    color: "hsl(152, 100%, 36%)",
     headline: "Сбербанк открыл первый полностью роботизированный офис в Москве",
     description: "Новый формат отделения Сбера работает без сотрудников — все операции выполняют AI-ассистенты и роботы.",
   },
   {
     ticker: "SMLT",
-    company: "Самолёт",
-    color: "hsl(152, 100%, 36%)",
     headline: "Самолёт вышел на рынок Казахстана с проектом жилого комплекса в Астане",
     description: "Девелопер «Самолёт» анонсировал первый международный проект — ЖК на 3000 квартир в столице Казахстана.",
   },
   {
     ticker: "POSI",
-    company: "Позитив",
-    color: "hsl(0, 70%, 55%)",
     headline: "Positive Technologies выиграла контракт на кибербезопасность для госсектора на 8 млрд рублей",
     description: "Positive Technologies заключила крупнейший в истории контракт на защиту критической инфраструктуры.",
   },
   {
     ticker: "MTSS",
-    company: "МТС",
-    color: "hsl(0, 80%, 55%)",
     headline: "МТС запустил 5G-сеть в Москве и Петербурге",
     description: "МТС объявил о коммерческом запуске 5G в двух столицах с покрытием центральных районов.",
   },
@@ -115,29 +108,33 @@ export default function LandingPage() {
 
           {/* Right side — news cards */}
           <div className="flex flex-col gap-3">
-            {newsItems.map((item, i) => (
-              <div
-                key={i}
-                className="bg-card rounded-xl border border-border p-5 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center gap-2 mb-2.5">
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-primary-foreground text-xs font-bold"
-                    style={{ backgroundColor: item.color }}
-                  >
-                    {item.ticker[0]}
+            {newsItems.map((item, i) => {
+              const emitter = getEmitterByTicker(item.ticker);
+              return (
+                <div
+                  key={i}
+                  className="bg-card rounded-xl border border-border p-5 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <div className="w-8 h-8 rounded-full bg-white border border-border flex items-center justify-center overflow-hidden">
+                      {emitter ? (
+                        <img src={emitter.logo} alt={emitter.name} className="w-6 h-6 object-contain" />
+                      ) : (
+                        <span className="text-xs font-bold">{item.ticker[0]}</span>
+                      )}
+                    </div>
+                    <span className="font-bold text-sm text-foreground">{item.ticker}</span>
+                    <span className="text-sm text-muted-foreground">{emitter?.name || item.ticker}</span>
                   </div>
-                  <span className="font-bold text-sm text-foreground">{item.ticker}</span>
-                  <span className="text-sm text-muted-foreground">{item.company}</span>
+                  <p className="text-sm font-medium text-foreground leading-snug mb-1">
+                    {item.headline}
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                    {item.description}
+                  </p>
                 </div>
-                <p className="text-sm font-medium text-foreground leading-snug mb-1">
-                  {item.headline}
-                </p>
-                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
-                  {item.description}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>

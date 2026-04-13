@@ -48,8 +48,9 @@ export default function AuthPage() {
         if (error) throw error;
         if (data?.bot_username) {
           setBotUsername(data.bot_username);
-          // Extract bot_id from token format or from response
-          // We'll use bot_username for the OAuth URL
+        }
+        if (data?.bot_id) {
+          setBotId(String(data.bot_id));
         }
       } catch (e) {
         console.warn("Failed to load Telegram bot info:", e);
@@ -109,14 +110,14 @@ export default function AuthPage() {
   }, [navigate]);
 
   const handleTelegramLogin = () => {
-    if (!botUsername) {
+    if (!botUsername || !botId) {
       toast.error("Бот Telegram ещё загружается, попробуйте снова");
       return;
     }
     // Use emitly.ru as the authorized domain for Telegram Login Widget
     const tgDomain = "https://emitly.ru";
     const returnUrl = `${tgDomain}/auth`;
-    const authUrl = `https://oauth.telegram.org/auth?bot_id=${botUsername}&origin=${encodeURIComponent(tgDomain)}&embed=0&request_access=write&return_to=${encodeURIComponent(returnUrl)}`;
+    const authUrl = `https://oauth.telegram.org/auth?bot_id=${botId}&origin=${encodeURIComponent(tgDomain)}&embed=0&request_access=write&return_to=${encodeURIComponent(returnUrl)}`;
     
     const width = 550;
     const height = 470;
@@ -271,107 +272,157 @@ export default function AuthPage() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
-      <div className="w-full max-w-[400px]">
-        <button
-          onClick={() => navigate("/")}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          На главную
-        </button>
+  const formContent = (
+    <div className="w-full max-w-[400px]">
+      <button
+        onClick={() => navigate("/")}
+        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        На главную
+      </button>
 
-        <div className="text-center mb-8">
-          <div className="text-2xl font-bold mb-2">
+      <div className="text-center mb-8">
+        <div className="text-3xl font-bold mb-2">
+          <span className="text-primary">Emit</span>
+          <span className="text-foreground">ly</span>
+        </div>
+        <p className="text-muted-foreground text-base">
+          {mode === "login" ? "Войдите в аккаунт" : "Создайте аккаунт"}
+        </p>
+      </div>
+
+      {/* Telegram Login Button */}
+      <div className="mb-6">
+        <button
+          onClick={handleTelegramLogin}
+          disabled={tgLoading || !botUsername}
+          className="w-full flex items-center justify-center gap-2.5 bg-[#2AABEE] hover:bg-[#229ED9] text-white font-semibold py-3.5 rounded-xl transition-colors disabled:opacity-50 shadow-sm"
+        >
+          <Send className="w-5 h-5" />
+          {tgLoading ? "Авторизация..." : "Войти через Telegram"}
+        </button>
+      </div>
+
+      {/* Divider */}
+      <div className="flex items-center gap-3 mb-6">
+        <div className="flex-1 h-px bg-border" />
+        <span className="text-xs text-muted-foreground">или</span>
+        <div className="flex-1 h-px bg-border" />
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {mode === "register" && (
+          <div className="relative">
+            <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Имя"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              className="w-full bg-card border border-border rounded-xl pl-10 pr-4 py-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+            />
+          </div>
+        )}
+
+        <div className="relative">
+          <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="w-full bg-card border border-border rounded-xl pl-10 pr-4 py-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+          />
+        </div>
+
+        <div className="relative">
+          <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            type="password"
+            placeholder="Пароль"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={6}
+            className="w-full bg-card border border-border rounded-xl pl-10 pr-4 py-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-primary text-primary-foreground font-semibold py-3.5 rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 shadow-sm"
+        >
+          {loading
+            ? "Загрузка..."
+            : mode === "login"
+            ? "Войти"
+            : "Зарегистрироваться"}
+        </button>
+      </form>
+
+      <p className="text-center text-sm text-muted-foreground mt-6">
+        {mode === "login" ? "Нет аккаунта?" : "Уже есть аккаунт?"}{" "}
+        <button
+          onClick={() => setMode(mode === "login" ? "register" : "login")}
+          className="text-primary font-medium hover:underline"
+        >
+          {mode === "login" ? "Зарегистрироваться" : "Войти"}
+        </button>
+      </p>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-background flex">
+      {/* Left branding panel — desktop only */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary/10 via-accent to-primary/5 items-center justify-center p-12 relative overflow-hidden">
+        {/* Decorative circles */}
+        <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-primary/10 blur-3xl" />
+        <div className="absolute -bottom-32 -right-32 w-[500px] h-[500px] rounded-full bg-primary/5 blur-3xl" />
+        
+        <div className="relative z-10 max-w-md text-center">
+          <div className="text-5xl font-extrabold mb-6">
             <span className="text-primary">Emit</span>
             <span className="text-foreground">ly</span>
           </div>
-          <p className="text-muted-foreground">
-            {mode === "login" ? "Войдите в аккаунт" : "Создайте аккаунт"}
+          <p className="text-lg text-foreground/70 leading-relaxed mb-8">
+            Аналитика российского фондового рынка, новости эмитентов и инструменты для инвесторов — всё в одном месте.
           </p>
-        </div>
-
-        {/* Telegram Login Button */}
-        <div className="mb-6">
-          <button
-            onClick={handleTelegramLogin}
-            disabled={tgLoading || !botUsername}
-            className="w-full flex items-center justify-center gap-2.5 bg-[#2AABEE] hover:bg-[#229ED9] text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-50"
-          >
-            <Send className="w-5 h-5" />
-            {tgLoading ? "Авторизация..." : "Войти через Telegram"}
-          </button>
-        </div>
-
-        {/* Divider */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="flex-1 h-px bg-border" />
-          <span className="text-xs text-muted-foreground">или</span>
-          <div className="flex-1 h-px bg-border" />
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {mode === "register" && (
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Имя"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full bg-card border border-border rounded-xl pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
+          <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
+            <div className="flex flex-col items-center gap-1.5">
+              <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center">
+                <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+              </div>
+              <span>Аналитика</span>
             </div>
-          )}
-
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full bg-card border border-border rounded-xl pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
+            <div className="flex flex-col items-center gap-1.5">
+              <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center">
+                <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                </svg>
+              </div>
+              <span>Новости</span>
+            </div>
+            <div className="flex flex-col items-center gap-1.5">
+              <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center">
+                <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <span>Календарь</span>
+            </div>
           </div>
+        </div>
+      </div>
 
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="password"
-              placeholder="Пароль"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              className="w-full bg-card border border-border rounded-xl pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50"
-          >
-            {loading
-              ? "Загрузка..."
-              : mode === "login"
-              ? "Войти"
-              : "Зарегистрироваться"}
-          </button>
-        </form>
-
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          {mode === "login" ? "Нет аккаунта?" : "Уже есть аккаунт?"}{" "}
-          <button
-            onClick={() => setMode(mode === "login" ? "register" : "login")}
-            className="text-primary font-medium hover:underline"
-          >
-            {mode === "login" ? "Зарегистрироваться" : "Войти"}
-          </button>
-        </p>
+      {/* Right form panel */}
+      <div className="flex-1 flex items-center justify-center px-4 py-8">
+        {formContent}
       </div>
     </div>
   );

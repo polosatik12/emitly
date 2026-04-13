@@ -1,3 +1,4 @@
+import React from "react";
 import { Clock, TrendingUp, TrendingDown, ChevronRight } from "lucide-react";
 import { CategoryBadge } from "./CategoryBadge";
 import logoSber from "@/assets/logo-sber.jpg";
@@ -34,12 +35,12 @@ const tickerLogos: Record<string, string> = {
   "LKOH": logoLkoh,
 };
 
-export function NewsCard({ id, ticker, category, date, title, bullPercent = 50, bearPercent = 50, comments = 4, onClick }: NewsCardProps) {
+export const NewsCard = React.memo(function NewsCard({ id, ticker, category, date, title, bullPercent = 50, bearPercent = 50, comments = 4, onClick }: NewsCardProps) {
   const bottomColor = categoryBottomColors[category] || "#BDC3C7";
   const logo = tickerLogos[ticker];
 
   return (
-    <div className="bg-card rounded-[16px] card-shadow border border-border overflow-hidden cursor-pointer active:scale-[0.98] transition-transform" onClick={onClick}>
+    <div className="bg-card rounded-[16px] card-shadow border border-border overflow-hidden cursor-pointer active:scale-[0.97] hover:shadow-lg hover:-translate-y-[1px] transition-all duration-200 ease-out" onClick={onClick}>
       <div className="px-3.5 py-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-1.5">
@@ -90,4 +91,4 @@ export function NewsCard({ id, ticker, category, date, title, bullPercent = 50, 
       <div className="h-[3px] w-full" style={{ backgroundColor: bottomColor }} />
     </div>
   );
-}
+});

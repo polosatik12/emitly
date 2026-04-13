@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      news: {
+        Row: {
+          body_text: string
+          category: string
+          company_name: string
+          created_at: string
+          date: string
+          full_date: string
+          id: string
+          price: number
+          price_change: number
+          price_change_percent: number
+          sector: string
+          ticker: string
+          title: string
+        }
+        Insert: {
+          body_text?: string
+          category?: string
+          company_name: string
+          created_at?: string
+          date?: string
+          full_date?: string
+          id?: string
+          price?: number
+          price_change?: number
+          price_change_percent?: number
+          sector?: string
+          ticker: string
+          title: string
+        }
+        Update: {
+          body_text?: string
+          category?: string
+          company_name?: string
+          created_at?: string
+          date?: string
+          full_date?: string
+          id?: string
+          price?: number
+          price_change?: number
+          price_change_percent?: number
+          sector?: string
+          ticker?: string
+          title?: string
+        }
+        Relationships: []
+      }
       news_bookmarks: {
         Row: {
           created_at: string

@@ -8,10 +8,10 @@ export function FilterChip({ label, selected = false, onClick }: FilterChipProps
   return (
     <button
       onClick={onClick}
-      className={`px-3.5 py-[8px] rounded-full text-[12.5px] font-medium transition-all whitespace-nowrap ${
+      className={`px-3.5 py-[8px] rounded-full text-[12.5px] font-medium transition-all duration-200 ease-out whitespace-nowrap active:scale-[0.93] ${
         selected
-          ? "bg-chip-selected-bg text-chip-selected-fg"
-          : "bg-chip-default-bg text-chip-default-fg border border-chip-default-border"
+          ? "bg-chip-selected-bg text-chip-selected-fg shadow-sm"
+          : "bg-chip-default-bg text-chip-default-fg border border-chip-default-border hover:bg-muted"
       }`}
 
     >

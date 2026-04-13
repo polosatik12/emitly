@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
       const json = await res.json();
       if (!json.ok) throw new Error("getMe failed");
       return new Response(
-        JSON.stringify({ bot_username: json.result.username }),
+        JSON.stringify({ bot_username: json.result.username, bot_id: json.result.id }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     } catch (e) {
