@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Bookmark, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseProxy";
 import { useNews, type NewsItem } from "@/hooks/useNews";
 import { NewsCard } from "@/components/NewsCard";
 import NewsDetailDrawer from "@/components/NewsDetailDrawer";

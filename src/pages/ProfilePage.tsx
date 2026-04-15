@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Settings, Bookmark, ChevronRight, Sun, Bell, HelpCircle, FileText, DollarSign, Check, LogOut } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Settings, Bookmark, ChevronRight, Sun, Bell, HelpCircle, FileText, DollarSign, Check, LogOut, User, Phone, Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabaseProxy";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import RequisitesModal from "@/components/RequisitesModal";
@@ -30,8 +30,8 @@ function getInitials(value: string): string {
 const pricingPlans = [
   {
     name: "Бесплатный",
-    price: "0₽",
-    period: "/ 48 часов",
+    monthlyPrice: "0",
+    yearlyPrice: "0",
     features: [
       "1 эмитент в подписке",
       "Базовая лента новостей",
@@ -40,11 +40,12 @@ const pricingPlans = [
     isCurrent: true,
     isPopular: false,
     isPro: false,
+    isTrial: true,
   },
   {
     name: "Base",
-    price: "199₽",
-    period: "/ месяц",
+    monthlyPrice: "199",
+    yearlyPrice: "1990",
     features: [
       "5 эмитентов в подписке",
       "Мгновенные уведомления",
@@ -53,11 +54,12 @@ const pricingPlans = [
     isCurrent: false,
     isPopular: false,
     isPro: false,
+    isTrial: false,
   },
   {
     name: "Premium",
-    price: "299₽",
-    period: "/ месяц",
+    monthlyPrice: "299",
+    yearlyPrice: "2990",
     features: [
       "20 эмитентов в подписке",
       "Все функции Base",
@@ -68,11 +70,12 @@ const pricingPlans = [
     isCurrent: false,
     isPopular: true,
     isPro: false,
+    isTrial: false,
   },
   {
     name: "Pro",
-    price: "499₽",
-    period: "/ месяц",
+    monthlyPrice: "499",
+    yearlyPrice: "4990",
     features: [
       "50 эмитентов в подписке",
       "Все функции Premium",
@@ -83,6 +86,7 @@ const pricingPlans = [
     isCurrent: false,
     isPopular: false,
     isPro: true,
+    isTrial: false,
   },
 ];
 
@@ -93,6 +97,13 @@ export default function ProfilePage() {
   const [telegramNotifs, setTelegramNotifs] = useState(true);
   const [profileCard, setProfileCard] = useState<ProfileCardData>(defaultProfileCard);
   const [showRequisites, setShowRequisites] = useState(false);
+  const [billingPeriod, setBillingPeriod] = useState<"month" | "year">("month");
+
+  // Settings form state (desktop inline)
+  const [settingsName, setSettingsName] = useState("");
+  const [settingsPhone, setSettingsPhone] = useState("");
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -104,6 +115,8 @@ export default function ProfilePage() {
 
       if (!isMounted || !user) return;
 
+      setUserId(user.id);
+
       const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
       const metaDisplayName = typeof metadata.display_name === "string" ? metadata.display_name.trim() : "";
       const metaUsername = typeof metadata.telegram_username === "string" ? metadata.telegram_username.replace(/^@/, "").trim() : "";
@@ -112,7 +125,7 @@ export default function ProfilePage() {
 
       const { data: dbProfile } = await supabase
         .from("profiles")
-        .select("display_name, avatar_url")
+        .select("display_name, avatar_url, phone")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -128,6 +141,10 @@ export default function ProfilePage() {
         avatarUrl,
         email: user.email ?? "",
       });
+
+      // Pre-fill settings form
+      setSettingsName(displayName !== "Пользователь" ? displayName : "");
+      setSettingsPhone((dbProfile as any)?.phone ?? "");
     };
 
     void loadProfile();
@@ -136,6 +153,38 @@ export default function ProfilePage() {
       isMounted = false;
     };
   }, []);
+
+  const handleSaveSettings = async () => {
+    if (!userId) return;
+    setSavingSettings(true);
+
+    try {
+      const trimmedName = settingsName.trim();
+      const trimmedPhone = settingsPhone.trim();
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          display_name: trimmedName || null,
+          phone: trimmedPhone || null,
+        } as any)
+        .eq("user_id", userId);
+
+      if (error) throw error;
+
+      // Update the displayed card
+      if (trimmedName) {
+        setProfileCard((prev) => ({ ...prev, displayName: trimmedName }));
+      }
+
+      toast.success("Данные сохранены");
+    } catch (err: any) {
+      console.error("Failed to save settings:", err);
+      toast.error("Не удалось сохранить данные");
+    } finally {
+      setSavingSettings(false);
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -192,6 +241,60 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+
+        {/* Desktop inline settings */}
+        {!isMobile && (
+          <div className="rounded-2xl border border-border bg-card p-5">
+            <div className="flex items-center gap-2 mb-1">
+              <Settings className="h-[18px] w-[18px] text-primary" strokeWidth={1.8} />
+              <h2 className="text-[16px] font-bold text-foreground">Настройки</h2>
+            </div>
+            <p className="text-[13px] text-muted-foreground mb-4">
+              Эти данные необязательны и используются для персонализации
+            </p>
+
+            {/* ФИО */}
+            <div>
+              <label className="text-[14px] font-semibold text-foreground">ФИО</label>
+              <div className="mt-2 flex items-center gap-3 rounded-xl border border-border bg-background px-4 py-3">
+                <User className="h-[18px] w-[18px] text-muted-foreground shrink-0" strokeWidth={1.8} />
+                <input
+                  type="text"
+                  value={settingsName}
+                  onChange={(e) => setSettingsName(e.target.value)}
+                  placeholder="Иванов Иван Иванович"
+                  className="flex-1 bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground outline-none"
+                  maxLength={100}
+                />
+              </div>
+            </div>
+
+            {/* Телефон */}
+            <div className="mt-4">
+              <label className="text-[14px] font-semibold text-foreground">Телефон</label>
+              <div className="mt-2 flex items-center gap-3 rounded-xl border border-border bg-background px-4 py-3">
+                <Phone className="h-[18px] w-[18px] text-muted-foreground shrink-0" strokeWidth={1.8} />
+                <input
+                  type="tel"
+                  value={settingsPhone}
+                  onChange={(e) => setSettingsPhone(e.target.value)}
+                  placeholder="+7 (999) 123-45-67"
+                  className="flex-1 bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground outline-none"
+                  maxLength={20}
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={handleSaveSettings}
+              disabled={savingSettings}
+              className="mt-5 w-full rounded-xl bg-primary py-3 text-[15px] font-semibold text-primary-foreground active:scale-[0.97] transition-transform disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {savingSettings && <Loader2 className="h-4 w-4 animate-spin" />}
+              {savingSettings ? "Сохранение..." : "Сохранить"}
+            </button>
+          </div>
+        )}
 
         {/* Saved news */}
         <div className="rounded-2xl border border-border bg-card p-4 active:scale-[0.98] transition-transform cursor-pointer" onClick={() => navigate("/saved-news")}>
@@ -252,7 +355,7 @@ export default function ProfilePage() {
         {/* Quick links row on desktop */}
         {!isMobile && (
           <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-2xl border border-border bg-card px-4 py-3.5 cursor-pointer hover:bg-muted/50 transition-colors">
+            <div className="rounded-2xl border border-border bg-card px-4 py-3.5 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => window.open("mailto:support@emitly.ru", "_blank")}>
               <div className="flex items-center justify-center gap-2">
                 <HelpCircle className="h-[17px] w-[17px] text-muted-foreground" strokeWidth={1.8} />
                 <span className="text-[14px] font-medium text-foreground">Поддержка</span>
@@ -276,7 +379,7 @@ export default function ProfilePage() {
         {/* Quick links on mobile */}
         {isMobile && (
           <>
-            <div className="rounded-2xl border border-border bg-card px-4 py-3.5">
+            <div className="rounded-2xl border border-border bg-card px-4 py-3.5 cursor-pointer" onClick={() => window.open("mailto:support@emitly.ru", "_blank")}>
               <div className="flex items-center justify-center gap-2">
                 <HelpCircle className="h-[17px] w-[17px] text-muted-foreground" strokeWidth={1.8} />
                 <span className="text-[14px] font-medium text-foreground">Поддержка</span>
@@ -312,60 +415,102 @@ export default function ProfilePage() {
         <div className="pt-3">
           <h2 className="text-[18px] font-bold text-foreground">Тарифные планы</h2>
           <p className="text-[13px] text-primary mt-1">Выберите подходящий план подписки</p>
+          
+          {/* Billing period toggle */}
+          <div className="flex items-center gap-2 mt-3 bg-muted rounded-xl p-1 w-fit">
+            <button
+              onClick={() => setBillingPeriod("month")}
+              className={`px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors ${
+                billingPeriod === "month" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+              }`}
+            >
+              Месяц
+            </button>
+            <button
+              onClick={() => setBillingPeriod("year")}
+              className={`px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors relative ${
+                billingPeriod === "year" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+              }`}
+            >
+              Год
+              <span className="ml-1.5 text-[11px] font-bold text-primary">−17%</span>
+            </button>
+          </div>
         </div>
 
         {/* Pricing cards */}
         <div className={`pb-6 ${isMobile ? "space-y-4" : "grid grid-cols-2 gap-4"}`}>
-          {pricingPlans.map((plan) => (
-            <div
-              key={plan.name}
-              className={`relative rounded-2xl border p-5 bg-card ${
-                plan.isPopular
-                  ? "border-primary border-2"
-                  : plan.isPro
-                  ? "border-primary/40"
-                  : "border-border"
-              }`}
-            >
-              {plan.isPopular && (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                  <span className="rounded-full bg-primary/80 px-4 py-1.5 text-[12px] font-semibold text-primary-foreground">
-                    Популярный
-                  </span>
-                </div>
-              )}
-
-              <p className={`text-[16px] font-bold ${plan.isPro ? "text-primary" : "text-foreground"}`}>
-                {plan.name}
-              </p>
-
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-[28px] font-extrabold leading-none text-foreground">{plan.price}</span>
-                <span className="text-[14px] text-muted-foreground">{plan.period}</span>
-              </div>
-
-              <div className="mt-4 space-y-2.5">
-                {plan.features.map((f, i) => (
-                  <div key={i} className="flex items-start gap-2.5">
-                    <Check className="h-[16px] w-[16px] shrink-0 mt-0.5 text-primary" strokeWidth={2} />
-                    <span className="text-[13px] text-foreground leading-snug">{f}</span>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                className={`mt-5 w-full rounded-xl py-3 text-[14px] font-semibold transition-transform active:scale-[0.97] ${
-                  plan.isCurrent
-                    ? "bg-muted text-muted-foreground"
+          {pricingPlans.map((plan) => {
+            const isYearly = billingPeriod === "year" && !plan.isTrial;
+            const displayPrice = plan.isTrial ? "0" : (isYearly ? plan.yearlyPrice : plan.monthlyPrice);
+            const period = plan.isTrial ? "/ 48 часов" : (isYearly ? "/ год" : "/ месяц");
+            const monthlyTotal = Number(plan.monthlyPrice) * 12;
+            const yearlySaving = monthlyTotal - Number(plan.yearlyPrice);
+            
+            return (
+              <div
+                key={plan.name}
+                className={`relative rounded-2xl border p-5 bg-card ${
+                  plan.isPopular
+                    ? "border-primary border-2"
                     : plan.isPro
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground"
+                    ? "border-primary/40"
+                    : "border-border"
                 }`}
               >
-                {plan.isCurrent ? "Текущий план" : "Выбрать план"}
-              </button>
-            </div>
-          ))}
+                {plan.isPopular && (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                    <span className="rounded-full bg-primary/80 px-4 py-1.5 text-[12px] font-semibold text-primary-foreground">
+                      Популярный
+                    </span>
+                  </div>
+                )}
+
+                <p className={`text-[16px] font-bold ${plan.isPro ? "text-primary" : "text-foreground"}`}>
+                  {plan.name}
+                </p>
+
+                <div className="mt-2 flex items-baseline gap-1">
+                  {isYearly && (
+                    <span className="text-[18px] font-bold text-muted-foreground line-through mr-1">
+                      {monthlyTotal}₽
+                    </span>
+                  )}
+                  <span className="text-[28px] font-extrabold leading-none text-foreground">{displayPrice}₽</span>
+                  <span className="text-[14px] text-muted-foreground">{period}</span>
+                </div>
+
+                {isYearly && yearlySaving > 0 && (
+                  <div className="mt-1.5">
+                    <span className="inline-block rounded-full bg-primary/10 text-primary text-[12px] font-semibold px-3 py-1">
+                      Выгода {yearlySaving}₽
+                    </span>
+                  </div>
+                )}
+
+                <div className="mt-4 space-y-2.5">
+                  {plan.features.map((f, i) => (
+                    <div key={i} className="flex items-start gap-2.5">
+                      <Check className="h-[16px] w-[16px] shrink-0 mt-0.5 text-primary" strokeWidth={2} />
+                      <span className="text-[13px] text-foreground leading-snug">{f}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  className={`mt-5 w-full rounded-xl py-3 text-[14px] font-semibold transition-transform active:scale-[0.97] ${
+                    plan.isCurrent
+                      ? "bg-muted text-muted-foreground"
+                      : plan.isPro
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {plan.isCurrent ? "Текущий план" : "Выбрать план"}
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
       <RequisitesModal open={showRequisites} onClose={() => setShowRequisites(false)} />

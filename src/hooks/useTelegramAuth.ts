@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseProxy";
 import type { Session } from "@supabase/supabase-js";
 
 interface TelegramWebApp {

@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Newspaper, BarChart3, Bell, FileText, Calendar, MessageCircle, LogIn, UserPlus } from "lucide-react";
 import { getEmitterByTicker } from "@/data/emitters";
+import { downloadFile } from "@/lib/download";
 
 const newsItems = [
   {
@@ -178,6 +179,18 @@ export default function LandingPage() {
           </button>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="border-t border-border py-8">
+        <div className="max-w-[1200px] mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <span className="text-sm text-muted-foreground">© {new Date().getFullYear()} Emitly</span>
+          <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
+            <span onClick={() => downloadFile("/docs/user-agreement.docx", "Пользовательское_соглашение.docx")} className="hover:text-foreground cursor-pointer transition-colors">Пользовательское соглашение</span>
+            <span onClick={() => downloadFile("/docs/privacy-policy.docx", "Политика_обработки_данных.docx")} className="hover:text-foreground cursor-pointer transition-colors">Конфиденциальность</span>
+            <span onClick={() => window.open("mailto:support@emitly.ru", "_blank")} className="hover:text-foreground cursor-pointer transition-colors">Поддержка</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

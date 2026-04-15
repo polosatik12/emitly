@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, Share2, CalendarDays, ExternalLink, TrendingUp, TrendingDown, Bookmark, BookmarkCheck, Bell, Heart, MessageCircle, Users, LogIn, X, Send } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNewsComments, useNewsBookmark, useNewsVotes } from "@/hooks/useNewsInteractions";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseProxy";
 import logoSber from "@/assets/logo-sber.jpg";
 import logoSmlt from "@/assets/logo-smlt.png";
 import logoPosi from "@/assets/logo-posi.png";

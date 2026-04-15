@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      chat_messages: {
+        Row: {
+          created_at: string
+          id: string
+          text: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          text: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          text?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      emitter_subscriptions: {
+        Row: {
+          created_at: string
+          id: string
+          ticker: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ticker: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ticker?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       news: {
         Row: {
           body_text: string
@@ -134,12 +176,40 @@ export type Database = {
         }
         Relationships: []
       }
+      otp_codes: {
+        Row: {
+          code: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          used: boolean
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          used?: boolean
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          used?: boolean
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           created_at: string
           display_name: string | null
           id: string
+          phone: string | null
           updated_at: string
           user_id: string
         }
@@ -148,6 +218,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          phone?: string | null
           updated_at?: string
           user_id: string
         }
@@ -156,6 +227,49 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          amount: number
+          created_at: string
+          expires_at: string | null
+          id: string
+          payment_id: string | null
+          period: string
+          plan_id: string
+          starts_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          payment_id?: string | null
+          period: string
+          plan_id: string
+          starts_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          payment_id?: string | null
+          period?: string
+          plan_id?: string
+          starts_at?: string | null
+          status?: string
           updated_at?: string
           user_id?: string
         }

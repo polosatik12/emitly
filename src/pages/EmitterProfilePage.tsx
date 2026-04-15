@@ -6,6 +6,8 @@ import { useNews, type NewsItem } from "@/hooks/useNews";
 import { NewsCard } from "@/components/NewsCard";
 import { FiltersModal } from "@/components/FiltersModal";
 import NewsDetailDrawer from "@/components/NewsDetailDrawer";
+import { useEmitterSubscriptions } from "@/hooks/useEmitterSubscriptions";
+import { useMoexPrices, formatPrice } from "@/hooks/useMoexPrices";
 
 const categories = ["Все", "Событие", "Сделка", "Дивиденды", "Отчёты"];
 
@@ -19,7 +21,13 @@ export default function EmitterProfilePage() {
   const [activeCategory, setActiveCategory] = useState("Все");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
-  const [notifications, setNotifications] = useState(false);
+  const { isSubscribed, subscribe, unsubscribe } = useEmitterSubscriptions();
+  const { prices } = useMoexPrices();
+
+  // Live price from MOEX
+  const livePrice = ticker ? prices[ticker.toUpperCase()] : undefined;
+  const displayPrice = livePrice ? formatPrice(livePrice.price) : emitter?.price ?? "";
+  const displayChangePercent = livePrice ? livePrice.changePercent : (emitter?.changePercent ?? 0);
 
   // Filter news by this emitter's ticker
   const emitterNews = useMemo(() => {
@@ -36,15 +44,15 @@ export default function EmitterProfilePage() {
 
   // Generate mock chart data points
   const chartPoints = useMemo(() => {
-    const basePrice = emitter ? parseFloat(emitter.price.replace(/[^\d.]/g, "")) || 100 : 100;
+    const basePrice = livePrice ? livePrice.price : (emitter ? parseFloat(emitter.price.replace(/[^\d.]/g, "")) || 100 : 100);
     const points = [];
     let price = basePrice;
     for (let i = 0; i < 60; i++) {
       price = price * (1 + (Math.random() - 0.48) * 0.02);
-      points.push(price);
+    points.push(price);
     }
     return points;
-  }, [emitter?.price]);
+  }, [livePrice?.price, emitter?.price]);
 
   const minP = Math.min(...chartPoints);
   const maxP = Math.max(...chartPoints);
@@ -60,7 +68,7 @@ export default function EmitterProfilePage() {
     })
     .join(" ");
 
-  const isPositive = (emitter?.changePercent ?? 0) >= 0;
+  const isPositive = displayChangePercent >= 0;
   const strokeColor = isPositive ? "hsl(var(--news-positive))" : "hsl(var(--news-negative))";
 
   if (!emitter) {
@@ -86,10 +94,14 @@ export default function EmitterProfilePage() {
           </div>
         </div>
         <button
-          onClick={() => setNotifications(!notifications)}
+          onClick={() => {
+            if (ticker) {
+              isSubscribed(ticker.toUpperCase()) ? unsubscribe(ticker.toUpperCase()) : subscribe(ticker.toUpperCase());
+            }
+          }}
           className="p-1.5"
         >
-          {notifications ? (
+          {ticker && isSubscribed(ticker.toUpperCase()) ? (
             <Bell className="w-5 h-5 text-primary" />
           ) : (
             <BellOff className="w-5 h-5 text-muted-foreground" />
@@ -118,9 +130,9 @@ export default function EmitterProfilePage() {
       {/* Price + chart */}
       <div className="px-4 py-3">
         <div className="flex items-baseline gap-2 mb-2">
-          <span className="text-[22px] font-bold text-foreground">{emitter.price}</span>
+          <span className="text-[22px] font-bold text-foreground">{displayPrice}</span>
           <span className={`text-[14px] font-semibold ${isPositive ? "text-[hsl(var(--news-positive))]" : "text-[hsl(var(--news-negative))]"}`}>
-            {isPositive ? "+" : ""}{emitter.changePercent.toFixed(2)}%
+            {isPositive ? "+" : ""}{displayChangePercent.toFixed(2)}%
           </span>
         </div>
         <div className="bg-card rounded-xl border border-border p-3 overflow-hidden">

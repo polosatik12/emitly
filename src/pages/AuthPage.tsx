@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseProxy";
 import { toast } from "sonner";
 import { Mail, Lock, User, ArrowLeft, Send } from "lucide-react";
 import {
@@ -9,7 +9,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 
-type Step = "form" | "otp";
+type Step = "form" | "otp-register";
 
 // Telegram Login Widget callback data
 interface TelegramLoginData {
@@ -143,16 +143,14 @@ export default function AuthPage() {
 
     try {
       if (mode === "register") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { display_name: displayName },
-          },
+        // Send OTP code via SMTP before registering
+        const { data, error: otpError } = await supabase.functions.invoke("send-otp", {
+          body: { email },
         });
-        if (error) throw error;
-        toast.success("Регистрация завершена!");
-        navigate("/news");
+        if (otpError) throw new Error(otpError.message || "Не удалось отправить код");
+        if (data?.error) throw new Error(data.error);
+        toast.success("Код отправлен на " + email);
+        setStep("otp-register");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -170,14 +168,24 @@ export default function AuthPage() {
   };
 
   const handleVerifyOtp = async () => {
-    if (otpCode.length !== 6) return;
+    if (otpCode.length !== 4) return;
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.verifyOtp({
+      // Verify OTP code via edge function
+      const { data, error: verifyError } = await supabase.functions.invoke("verify-otp", {
+        body: { email, code: otpCode },
+      });
+      if (verifyError) throw new Error(verifyError.message || "Ошибка проверки кода");
+      if (data?.error) throw new Error(data.error);
+
+      // Code verified — now register the user
+      const { error } = await supabase.auth.signUp({
         email,
-        token: otpCode,
-        type: "signup",
+        password,
+        options: {
+          data: { display_name: displayName },
+        },
       });
       if (error) throw error;
       toast.success("Регистрация завершена!");
@@ -192,11 +200,11 @@ export default function AuthPage() {
   const handleResendCode = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email,
+      const { data, error: otpError } = await supabase.functions.invoke("send-otp", {
+        body: { email },
       });
-      if (error) throw error;
+      if (otpError) throw new Error(otpError.message);
+      if (data?.error) throw new Error(data.error);
       toast.success("Код отправлен повторно");
     } catch (error: any) {
       toast.error(error.message || "Не удалось отправить код");
@@ -205,7 +213,7 @@ export default function AuthPage() {
     }
   };
 
-  if (step === "otp") {
+  if (step === "otp-register") {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="w-full max-w-[400px]">
@@ -227,14 +235,14 @@ export default function AuthPage() {
             </div>
             <p className="text-muted-foreground">Введите код из письма</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Мы отправили 6-значный код на{" "}
+              Мы отправили 4-значный код на{" "}
               <span className="text-foreground font-medium">{email}</span>
             </p>
           </div>
 
           <div className="flex justify-center mb-6">
             <InputOTP
-              maxLength={6}
+              maxLength={4}
               value={otpCode}
               onChange={(value) => setOtpCode(value)}
             >
@@ -243,15 +251,13 @@ export default function AuthPage() {
                 <InputOTPSlot index={1} />
                 <InputOTPSlot index={2} />
                 <InputOTPSlot index={3} />
-                <InputOTPSlot index={4} />
-                <InputOTPSlot index={5} />
               </InputOTPGroup>
             </InputOTP>
           </div>
 
           <button
             onClick={handleVerifyOtp}
-            disabled={loading || otpCode.length !== 6}
+            disabled={loading || otpCode.length !== 4}
             className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             {loading ? "Проверка..." : "Подтвердить"}

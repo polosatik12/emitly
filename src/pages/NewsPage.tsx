@@ -5,11 +5,14 @@ import { NewsCard } from "@/components/NewsCard";
 import { FiltersModal } from "@/components/FiltersModal";
 import { CompanyFilterModal } from "@/components/CompanyFilterModal";
 import NewsDetailDrawer from "@/components/NewsDetailDrawer";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseProxy";
 import { useNews, type NewsItem } from "@/hooks/useNews";
+import { useEmitterSubscriptions } from "@/hooks/useEmitterSubscriptions";
+import { SubscribedEmittersStrip } from "@/components/SubscribedEmittersStrip";
 
 export default function NewsPage() {
   const { news: allNews, loading: newsLoading } = useNews();
+  const { subscriptions } = useEmitterSubscriptions();
   const navigate = useNavigate();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [companyFilterOpen, setCompanyFilterOpen] = useState(false);
@@ -85,6 +88,9 @@ export default function NewsPage() {
           />
         </div>
       </div>
+
+      {/* Subscribed emitters strip */}
+      <SubscribedEmittersStrip tickers={subscriptions} />
 
       {/* Filters */}
       <div className="px-4 mb-2.5">

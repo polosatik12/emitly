@@ -1,136 +1,127 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Users, Bell, Globe, Headphones, ChevronDown, ChevronUp, Check, Minus, FileText, Copy, X, Download } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowLeft, Users, Bell, Globe, Headphones, Check, Minus, FileText, Copy, X, Download, Sparkles, Crown, Zap, Loader2 } from "lucide-react";
 import { downloadFile } from "@/lib/download";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 const plans = [
   {
     id: "trial",
     name: "Пробный",
-    price: "0",
-    currency: "₽",
-    period: "/ 48 часов",
-    description: "Бесплатный пробный период для знакомства с сервисом",
-    color: "hsl(var(--muted-foreground))",
+    monthlyPrice: 0,
+    yearlyPrice: 0,
+    description: "Знакомство с сервисом",
+    icon: Zap,
+    iconColor: "text-muted-foreground",
+    borderColor: "border-border",
     popular: false,
     highlighted: false,
-    chips: [
-      { icon: "users", text: "1 эмитент(ов)" },
-      { icon: "bell", text: "Базовые (до 10 в день)" },
-      { icon: "globe", text: "Основные (5 источников)" },
-      { icon: "support", text: "FAQ и документация" },
-    ],
-    includes: [
-      "Доступ к основной ленте новостей",
-      "Фильтрация по 1 эмитенту",
-      "Просмотр котировок в реальном времени",
-      "Базовые push-уведомления",
-      "Доступ к мобильному приложению",
-    ],
-    excludes: ["Персональная поддержка"],
-    specs: {
-      notifications: "Базовые (до 10 в день)",
-      analytics: "Нет",
+    isTrial: true,
+    features: {
+      emitters: "1",
+      notifications: "До 10/день",
+      sources: "5 основных",
+      support: "FAQ",
+      analytics: false,
+      anomalies: false,
+      insiders: false,
+      exclusive: false,
+      priority: false,
     },
     buttonText: "Попробовать бесплатно",
-    buttonStyle: "outline" as const,
+    buttonVariant: "outline" as const,
   },
   {
     id: "base",
     name: "Base",
-    price: "199",
-    currency: "₽",
-    period: "/ месяц",
-    description: "Оптимальный выбор для начинающих инвесторов",
-    color: "hsl(210, 100%, 50%)",
+    monthlyPrice: 199,
+    yearlyPrice: 1990,
+    description: "Для начинающих инвесторов",
+    icon: Zap,
+    iconColor: "text-blue-500",
+    borderColor: "border-border",
     popular: false,
     highlighted: false,
-    chips: [
-      { icon: "users", text: "5 эмитент(ов)" },
-      { icon: "bell", text: "Мгновенные (без ограничений)" },
-      { icon: "globe", text: "Расширенные (15 источников)" },
-      { icon: "support", text: "Email (до 24ч ответ)" },
-    ],
-    includes: [
-      "Все возможности пробного периода",
-      "Подписка на 5 эмитентов",
-      "Мгновенные push-уведомления",
-      "15 источников информации",
-      "Фильтрация по категориям",
-      "Поддержка по email",
-    ],
-    excludes: ["Аналитика и статистика"],
-    specs: {
-      notifications: "Мгновенные (без ограничений)",
-      analytics: "Нет",
+    isTrial: false,
+    features: {
+      emitters: "5",
+      notifications: "Без ограничений",
+      sources: "15 расширенных",
+      support: "Email (24ч)",
+      analytics: false,
+      anomalies: false,
+      insiders: false,
+      exclusive: false,
+      priority: false,
     },
     buttonText: "Выбрать план",
-    buttonStyle: "outline" as const,
+    buttonVariant: "outline" as const,
   },
   {
     id: "premium",
     name: "Premium",
-    price: "299",
-    currency: "₽",
-    period: "/ месяц",
-    description: "Профессиональный инструмент для активных инвесторов",
-    color: "hsl(160, 84%, 39%)",
+    monthlyPrice: 299,
+    yearlyPrice: 2990,
+    description: "Для активных инвесторов",
+    icon: Sparkles,
+    iconColor: "text-[hsl(160,84%,39%)]",
+    borderColor: "border-[hsl(160,84%,39%)]",
     popular: true,
     highlighted: true,
-    chips: [
-      { icon: "users", text: "20 эмитент(ов)" },
-      { icon: "bell", text: "Мгновенные" },
-      { icon: "globe", text: "Все доступные (25+ источников)" },
-      { icon: "support", text: "Чат (до 4ч ответ)" },
-    ],
-    includes: [
-      "Все возможности Base",
-      "Подписка на 20 эмитентов",
-      "Все источники информации",
-      "Аналитика и статистика",
-      "Поддержка в чате",
-      "Торговые аномалии",
-      "Крупные сделки инсайдеров",
-    ],
-    excludes: [],
-    specs: {
+    isTrial: false,
+    features: {
+      emitters: "20",
       notifications: "Мгновенные",
-      analytics: "Да",
+      sources: "25+ источников",
+      support: "Чат (4ч)",
+      analytics: true,
+      anomalies: true,
+      insiders: true,
+      exclusive: false,
+      priority: false,
     },
     buttonText: "Выбрать план",
-    buttonStyle: "primary" as const,
+    buttonVariant: "primary" as const,
   },
   {
     id: "pro",
     name: "Pro",
-    price: "499",
-    currency: "₽",
-    period: "/ месяц",
-    description: "Максимальные возможности для профессионалов рынка",
-    color: "hsl(160, 84%, 39%)",
+    monthlyPrice: 499,
+    yearlyPrice: 4990,
+    description: "Максимальные возможности",
+    icon: Crown,
+    iconColor: "text-amber-500",
+    borderColor: "border-amber-400/50",
     popular: false,
     highlighted: false,
-    chips: [
-      { icon: "users", text: "50 эмитент(ов)" },
-      { icon: "bell", text: "Приоритетные" },
-      { icon: "globe", text: "Все + эксклюзивные" },
-      { icon: "support", text: "Приоритет (до 1ч ответ)" },
-    ],
-    includes: [
-      "Все возможности Premium",
-      "Подписка на 50 эмитентов",
-      "Эксклюзивные источники",
-      "Расширенная аналитика",
-      "Приоритетная поддержка 24/7",
-    ],
-    excludes: [],
-    specs: {
+    isTrial: false,
+    features: {
+      emitters: "50",
       notifications: "Приоритетные",
-      analytics: "Да",
+      sources: "Все + эксклюзивные",
+      support: "24/7 (1ч)",
+      analytics: true,
+      anomalies: true,
+      insiders: true,
+      exclusive: true,
+      priority: true,
     },
     buttonText: "Выбрать план",
-    buttonStyle: "outline" as const,
+    buttonVariant: "outline" as const,
   },
+];
+
+const featureRows = [
+  { key: "emitters" as const, label: "Эмитенты", icon: Users },
+  { key: "notifications" as const, label: "Уведомления", icon: Bell },
+  { key: "sources" as const, label: "Источники", icon: Globe },
+  { key: "support" as const, label: "Поддержка", icon: Headphones },
+  { key: "analytics" as const, label: "Аналитика", icon: null },
+  { key: "anomalies" as const, label: "Торговые аномалии", icon: null },
+  { key: "insiders" as const, label: "Сделки инсайдеров", icon: null },
+  { key: "exclusive" as const, label: "Эксклюзивные источники", icon: null },
+  { key: "priority" as const, label: "Приоритетная поддержка", icon: null },
 ];
 
 const requisites = [
@@ -144,22 +135,110 @@ const requisites = [
   { label: "Корреспондентский счёт", value: "30101810200000000593" },
 ];
 
-function ChipIcon({ icon }: { icon: string }) {
-  const cls = "h-4 w-4 text-muted-foreground shrink-0";
-  switch (icon) {
-    case "users": return <Users className={cls} />;
-    case "bell": return <Bell className={cls} />;
-    case "globe": return <Globe className={cls} />;
-    case "support": return <Headphones className={cls} />;
-    default: return null;
-  }
-}
+const allFeatureDetails: Record<string, { label: string; value: string | boolean }[]> = {
+  trial: [
+    { label: "Эмитенты", value: "1 эмитент" },
+    { label: "Уведомления", value: "До 10 в день" },
+    { label: "Источники новостей", value: "5 основных" },
+    { label: "Поддержка", value: "FAQ" },
+    { label: "Срок действия", value: "48 часов" },
+    { label: "Аналитика", value: false },
+    { label: "Торговые аномалии", value: false },
+    { label: "Сделки инсайдеров", value: false },
+    { label: "Эксклюзивные источники", value: false },
+    { label: "Приоритетная поддержка", value: false },
+  ],
+  base: [
+    { label: "Эмитенты", value: "5 эмитентов" },
+    { label: "Уведомления", value: "Без ограничений" },
+    { label: "Источники новостей", value: "15 расширенных" },
+    { label: "Поддержка", value: "Email (время ответа 24ч)" },
+    { label: "Аналитика", value: false },
+    { label: "Торговые аномалии", value: false },
+    { label: "Сделки инсайдеров", value: false },
+    { label: "Эксклюзивные источники", value: false },
+    { label: "Приоритетная поддержка", value: false },
+  ],
+  premium: [
+    { label: "Эмитенты", value: "20 эмитентов" },
+    { label: "Уведомления", value: "Мгновенные push-уведомления" },
+    { label: "Источники новостей", value: "25+ источников" },
+    { label: "Поддержка", value: "Чат (время ответа 4ч)" },
+    { label: "Аналитика", value: true },
+    { label: "Торговые аномалии", value: true },
+    { label: "Сделки инсайдеров", value: true },
+    { label: "Эксклюзивные источники", value: false },
+    { label: "Приоритетная поддержка", value: false },
+  ],
+  pro: [
+    { label: "Эмитенты", value: "50 эмитентов" },
+    { label: "Уведомления", value: "Приоритетные (первым)" },
+    { label: "Источники новостей", value: "Все + эксклюзивные" },
+    { label: "Поддержка", value: "24/7 (время ответа 1ч)" },
+    { label: "Аналитика", value: true },
+    { label: "Торговые аномалии", value: true },
+    { label: "Сделки инсайдеров", value: true },
+    { label: "Эксклюзивные источники", value: true },
+    { label: "Приоритетная поддержка", value: true },
+  ],
+};
 
 export default function ServiceCatalogPage() {
   const navigate = useNavigate();
-  const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const [billingPeriod, setBillingPeriod] = useState<"month" | "year">("month");
   const [showRequisites, setShowRequisites] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<typeof plans[0] | null>(null);
+
+  const paymentStatus = searchParams.get("payment");
+
+  const handleOpenPlanModal = (plan: typeof plans[0]) => {
+    if (plan.isTrial) {
+      toast({ title: "Пробный период", description: "Пробный период активируется автоматически при регистрации." });
+      return;
+    }
+    setSelectedPlan(plan);
+  };
+
+  const handleBuyPlan = async () => {
+    if (!selectedPlan) return;
+    const plan = selectedPlan;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast({ title: "Необходима авторизация", description: "Войдите в аккаунт для оформления подписки.", variant: "destructive" });
+      setSelectedPlan(null);
+      navigate("/auth");
+      return;
+    }
+
+    const isYearly = billingPeriod === "year";
+    const amount = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
+    const period = isYearly ? "year" : "month";
+    const description = `Emitly ${plan.name} — ${isYearly ? "годовая" : "месячная"} подписка`;
+
+    setLoadingPlan(plan.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-payment", {
+        body: { planId: plan.id, period, amount, description },
+      });
+
+      if (error) throw error;
+
+      if (data?.confirmation_url) {
+        window.location.href = data.confirmation_url;
+      } else {
+        throw new Error("No confirmation URL received");
+      }
+    } catch (err: any) {
+      console.error("Payment error:", err);
+      toast({ title: "Ошибка оплаты", description: err.message || "Попробуйте позже", variant: "destructive" });
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
 
   const copyToClipboard = (text: string, index: number) => {
     navigator.clipboard.writeText(text);
@@ -167,8 +246,14 @@ export default function ServiceCatalogPage() {
     setTimeout(() => setCopiedIndex(null), 1500);
   };
 
+  useEffect(() => {
+    if (paymentStatus === "success") {
+      toast({ title: "Оплата получена!", description: "Ваша подписка активирована. Спасибо!" });
+    }
+  }, [paymentStatus]);
+
   return (
-    <div className="flex flex-col min-h-screen max-w-2xl mx-auto pb-[80px] bg-background">
+    <div className="flex flex-col min-h-screen max-w-3xl mx-auto pb-[80px] bg-background">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-3 pb-2 sticky top-0 bg-background z-10">
         <button onClick={() => navigate(-1)} className="p-1 active:scale-95 transition-transform">
@@ -177,136 +262,185 @@ export default function ServiceCatalogPage() {
         <h1 className="text-[17px] font-bold text-foreground">Каталог услуг</h1>
       </div>
 
-      <div className="px-4 pt-2 space-y-5">
+      <div className="px-4 pt-2 space-y-6">
         {/* About */}
-        <div className="rounded-2xl border border-[hsl(var(--border))] bg-card p-5">
+        <div className="rounded-2xl border border-border bg-card p-5">
           <h2 className="text-[16px] font-bold text-foreground">О сервисе Emitly</h2>
           <p className="text-[14px] text-muted-foreground mt-3 leading-relaxed">
             <strong className="text-foreground">Emitly</strong> — информационный сервис для инвесторов, предоставляющий агрегированную ленту новостей по российским эмитентам в режиме реального времени.
           </p>
-          <p className="text-[14px] text-muted-foreground mt-2 leading-relaxed">
-            Услуга включает мониторинг новостей, уведомления о важных событиях, аналитические инструменты и интеграцию с торговыми системами.
-          </p>
         </div>
 
-        {/* Plans */}
-        <h2 className="text-[18px] font-bold text-foreground">Тарифные планы</h2>
-
-        {plans.map((plan) => {
-          const isExpanded = expandedPlan === plan.id;
-          return (
-            <div
-              key={plan.id}
-              className={`rounded-2xl border bg-card p-5 relative ${
-                plan.highlighted
-                  ? "border-[hsl(160,84%,39%)] border-2"
-                  : "border-[hsl(var(--border))]"
+        {/* Plans header + toggle */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <h2 className="text-[18px] font-bold text-foreground">Тарифные планы</h2>
+          <div className="flex items-center bg-muted rounded-xl p-1">
+            <button
+              onClick={() => setBillingPeriod("month")}
+              className={`px-4 py-2 rounded-lg text-[13px] font-semibold transition-all ${
+                billingPeriod === "month"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {plan.popular && (
-                <div className="absolute top-3 right-4 bg-[hsl(160,84%,39%)] text-white text-[11px] font-semibold px-3 py-1 rounded-md">
-                  Популярный
-                </div>
-              )}
+              Месяц
+            </button>
+            <button
+              onClick={() => setBillingPeriod("year")}
+              className={`px-4 py-2 rounded-lg text-[13px] font-semibold transition-all ${
+                billingPeriod === "year"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Год
+              <span className="ml-1 text-[11px] font-bold text-[hsl(160,84%,39%)]">−17%</span>
+            </button>
+          </div>
+        </div>
 
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: plan.color }} />
-                  <span className="text-[18px] font-bold text-foreground">{plan.name}</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-[24px] font-bold text-foreground">{plan.price}</span>
-                  <span className="text-[18px] text-foreground">₽</span>
-                  <div className="text-[12px] text-muted-foreground">{plan.period}</div>
-                </div>
-              </div>
+        {/* Plan cards — horizontal scroll on mobile, grid on larger */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {plans.map((plan) => {
+            const isYearly = billingPeriod === "year" && !plan.isTrial;
+            const price = plan.isTrial ? 0 : (isYearly ? plan.yearlyPrice : plan.monthlyPrice);
+            const period = plan.isTrial ? "48 часов" : (isYearly ? "год" : "месяц");
+            const monthlyTotal = plan.monthlyPrice * 12;
+            const saving = monthlyTotal - plan.yearlyPrice;
+            const Icon = plan.icon;
 
-              <p className="text-[13px] text-muted-foreground mt-1">{plan.description}</p>
-
-              {/* Feature chips */}
-              <div className="grid grid-cols-2 gap-2 mt-4">
-                {plan.chips.map((chip, i) => (
-                  <div key={i} className="flex items-center gap-2 bg-[hsl(var(--muted))] rounded-xl px-3 py-2.5">
-                    <ChipIcon icon={chip.icon} />
-                    <span className="text-[12px] text-foreground leading-tight">{chip.text}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Expandable description */}
-              <button
-                onClick={() => setExpandedPlan(isExpanded ? null : plan.id)}
-                className="flex items-center justify-between w-full mt-4 pt-3 border-t border-[hsl(var(--border))]"
-              >
-                <span className="text-[14px] font-medium text-foreground">Подробное описание</span>
-                {isExpanded ? (
-                  <ChevronUp className="h-5 w-5 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                )}
-              </button>
-
-              {isExpanded && (
-                <div className="mt-3 space-y-4">
-                  {/* Includes */}
-                  <div>
-                    <p className="text-[13px] font-semibold text-foreground mb-2">Что входит:</p>
-                    <div className="space-y-1.5">
-                      {plan.includes.map((item, i) => (
-                        <div key={i} className="flex items-start gap-2">
-                          <Check className="h-4 w-4 text-[hsl(160,84%,39%)] shrink-0 mt-0.5" />
-                          <span className="text-[13px] text-foreground">{item}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Excludes */}
-                  {plan.excludes.length > 0 && (
-                    <div>
-                      <p className="text-[13px] font-semibold text-muted-foreground mb-2">Не входит:</p>
-                      <div className="space-y-1.5">
-                        {plan.excludes.map((item, i) => (
-                          <div key={i} className="flex items-start gap-2">
-                            <Minus className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                            <span className="text-[13px] text-muted-foreground">{item}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Specs */}
-                  <div className="border-t border-[hsl(var(--border))] pt-3">
-                    <p className="text-[13px] font-semibold text-foreground mb-2">Технические характеристики:</p>
-                    <div className="flex justify-between text-[13px]">
-                      <span className="text-muted-foreground">Уведомления:</span>
-                      <span className="text-foreground">{plan.specs.notifications}</span>
-                    </div>
-                    <div className="flex justify-between text-[13px] mt-1">
-                      <span className="text-muted-foreground">Аналитика:</span>
-                      <span className="text-foreground">{plan.specs.analytics}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* CTA Button */}
-              <button
-                className={`mt-4 w-full rounded-xl py-3 text-[14px] font-semibold transition-transform active:scale-[0.97] ${
-                  plan.buttonStyle === "primary"
-                    ? "bg-[hsl(160,84%,39%)] text-white"
-                    : "border border-[hsl(var(--border))] bg-background text-foreground"
+            return (
+              <div
+                key={plan.id}
+                className={`relative rounded-2xl border bg-card p-5 flex flex-col transition-shadow hover:shadow-md ${
+                  plan.highlighted ? `${plan.borderColor} border-2` : "border-border"
                 }`}
               >
-                {plan.buttonText}
-              </button>
-            </div>
-          );
-        })}
+                {plan.popular && (
+                  <div className="mb-3">
+                    <span className="rounded-full bg-[hsl(160,84%,39%)] text-white text-[11px] font-semibold px-3 py-1">
+                      Популярный
+                    </span>
+                  </div>
+                )}
+
+                {/* Plan name + icon */}
+                <div className="flex items-center gap-2.5">
+                  <div className={`flex items-center justify-center w-9 h-9 rounded-xl bg-muted`}>
+                    <Icon className={`h-[18px] w-[18px] ${plan.iconColor}`} strokeWidth={2} />
+                  </div>
+                  <div>
+                    <h3 className="text-[16px] font-bold text-foreground">{plan.name}</h3>
+                    <p className="text-[12px] text-muted-foreground">{plan.description}</p>
+                  </div>
+                </div>
+
+                {/* Price */}
+                <div className="mt-4 flex items-end gap-2">
+                  <span className="text-[32px] font-extrabold leading-none text-foreground">
+                    {price.toLocaleString("ru-RU")}₽
+                  </span>
+                  <span className="text-[13px] text-muted-foreground pb-1">/ {period}</span>
+                </div>
+
+                {isYearly && saving > 0 && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-[14px] text-muted-foreground line-through">
+                      {monthlyTotal.toLocaleString("ru-RU")}₽
+                    </span>
+                    <span className="inline-flex items-center rounded-full bg-[hsl(160,84%,39%)]/10 text-[hsl(160,84%,39%)] text-[12px] font-bold px-2.5 py-0.5">
+                      −{saving.toLocaleString("ru-RU")}₽
+                    </span>
+                  </div>
+                )}
+
+                {/* Key features summary */}
+                <div className="mt-4 space-y-2 flex-1">
+                  <div className="flex items-center gap-2 text-[13px]">
+                    <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-foreground">{plan.features.emitters} эмитентов</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[13px]">
+                    <Bell className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-foreground">{plan.features.notifications}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[13px]">
+                    <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-foreground">{plan.features.sources}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[13px]">
+                    <Headphones className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-foreground">{plan.features.support}</span>
+                  </div>
+                </div>
+
+                {/* CTA */}
+                <button
+                  onClick={() => handleOpenPlanModal(plan)}
+                  disabled={loadingPlan === plan.id}
+                  className={`mt-5 w-full rounded-xl py-3 text-[14px] font-semibold transition-all active:scale-[0.97] disabled:opacity-60 ${
+                    plan.buttonVariant === "primary"
+                      ? "bg-[hsl(160,84%,39%)] text-white hover:opacity-90"
+                      : "border border-border bg-background text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {loadingPlan === plan.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                  ) : (
+                    plan.buttonText
+                  )}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Feature comparison table */}
+        <div className="rounded-2xl border border-border bg-card overflow-hidden">
+          <div className="p-5 pb-3">
+            <h3 className="text-[16px] font-bold text-foreground">Сравнение тарифов</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left px-5 py-3 text-muted-foreground font-medium">Возможность</th>
+                  {plans.map((p) => (
+                    <th key={p.id} className={`text-center px-3 py-3 font-bold text-foreground min-w-[80px] ${p.highlighted ? "bg-[hsl(160,84%,39%)]/5" : ""}`}>
+                      {p.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {featureRows.map((row, ri) => (
+                  <tr key={row.key} className={ri < featureRows.length - 1 ? "border-b border-border/50" : ""}>
+                    <td className="px-5 py-3 text-foreground font-medium">{row.label}</td>
+                    {plans.map((plan) => {
+                      const val = plan.features[row.key];
+                      return (
+                        <td key={plan.id} className={`text-center px-3 py-3 ${plan.highlighted ? "bg-[hsl(160,84%,39%)]/5" : ""}`}>
+                          {typeof val === "boolean" ? (
+                            val ? (
+                              <Check className="h-4 w-4 text-[hsl(160,84%,39%)] mx-auto" strokeWidth={2.5} />
+                            ) : (
+                              <Minus className="h-4 w-4 text-muted-foreground/40 mx-auto" />
+                            )
+                          ) : (
+                            <span className="text-foreground">{val}</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
         {/* Legal Info */}
-        <div className="rounded-2xl border border-[hsl(var(--border))] bg-card p-5">
+        <div className="rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center gap-2 mb-4">
             <FileText className="h-5 w-5 text-muted-foreground" />
             <h2 className="text-[16px] font-bold text-foreground">Правовая информация</h2>
@@ -321,23 +455,23 @@ export default function ServiceCatalogPage() {
 
           <div className="mt-4 space-y-1 text-[13px]">
             <p className="font-semibold text-foreground">Условия оплаты</p>
-            <p className="text-muted-foreground">• Оплата производится единовременно за выбранный период</p>
-            <p className="text-muted-foreground">• Принимаются банковские карты Visa, Mastercard, МИР</p>
-            <p className="text-muted-foreground">• Подписка активируется автоматически после оплаты</p>
-            <p className="text-muted-foreground">• Автопродление: да, с возможностью отключения</p>
+            <p className="text-muted-foreground">• Оплата единовременно за выбранный период</p>
+            <p className="text-muted-foreground">• Банковские карты Visa, Mastercard, МИР</p>
+            <p className="text-muted-foreground">• Автоактивация после оплаты</p>
+            <p className="text-muted-foreground">• Автопродление с возможностью отключения</p>
           </div>
 
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button
               onClick={() => downloadFile("/docs/user-agreement.docx", "Пользовательское_соглашение.docx")}
-              className="flex items-center gap-2 justify-center rounded-xl border border-[hsl(var(--border))] py-3 text-[13px] font-medium text-foreground active:scale-[0.97] transition-transform"
+              className="flex items-center gap-2 justify-center rounded-xl border border-border py-3 text-[13px] font-medium text-foreground active:scale-[0.97] transition-transform hover:bg-muted"
             >
               <Download className="h-4 w-4" />
               Пользовательское соглашение
             </button>
             <button
               onClick={() => downloadFile("/docs/privacy-policy.docx", "Политика_обработки_данных.docx")}
-              className="flex items-center gap-2 justify-center rounded-xl border border-[hsl(var(--border))] py-3 text-[13px] font-medium text-foreground active:scale-[0.97] transition-transform"
+              className="flex items-center gap-2 justify-center rounded-xl border border-border py-3 text-[13px] font-medium text-foreground active:scale-[0.97] transition-transform hover:bg-muted"
             >
               <Download className="h-4 w-4" />
               Политика обработки данных
@@ -346,7 +480,7 @@ export default function ServiceCatalogPage() {
 
           <button
             onClick={() => setShowRequisites(true)}
-            className="mt-2 flex items-center gap-2 w-full justify-center rounded-xl border border-[hsl(var(--border))] py-3 text-[13px] font-medium text-foreground active:scale-[0.97] transition-transform"
+            className="mt-2 flex items-center gap-2 w-full justify-center rounded-xl border border-border py-3 text-[13px] font-medium text-foreground active:scale-[0.97] transition-transform hover:bg-muted"
           >
             <FileText className="h-4 w-4" />
             Показать полные реквизиты
@@ -354,7 +488,7 @@ export default function ServiceCatalogPage() {
         </div>
 
         {/* Contacts */}
-        <div className="rounded-2xl border border-[hsl(var(--border))] bg-card p-5">
+        <div className="rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center gap-2 mb-4">
             <Headphones className="h-5 w-5 text-muted-foreground" />
             <h2 className="text-[16px] font-bold text-foreground">Контакты</h2>
@@ -369,11 +503,10 @@ export default function ServiceCatalogPage() {
               <span className="text-muted-foreground">Telegram: </span>
               <a href="https://t.me/emitly_support" className="text-[hsl(160,84%,39%)]">@emitly_support</a>
             </p>
-            <p className="text-muted-foreground">Время работы поддержки: Пн-Пт 9:00-21:00 (МСК)</p>
+            <p className="text-muted-foreground">Время работы: Пн-Пт 9:00-21:00 (МСК)</p>
           </div>
         </div>
 
-        {/* Footer */}
         <p className="text-center text-[12px] text-muted-foreground pb-4">© 2026 Emitly</p>
       </div>
 
@@ -391,7 +524,7 @@ export default function ServiceCatalogPage() {
               </button>
             </div>
 
-            <div className="px-5 pb-6 divide-y divide-[hsl(var(--border))]">
+            <div className="px-5 pb-6 divide-y divide-border">
               {requisites.map((item, i) => (
                 <div key={i} className="py-3 flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
@@ -410,6 +543,88 @@ export default function ServiceCatalogPage() {
                   </button>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Plan Detail Modal */}
+      {selectedPlan && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50" onClick={() => setSelectedPlan(null)}>
+          <div
+            className="w-full max-w-md bg-card rounded-t-2xl sm:rounded-2xl max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 pb-3 sticky top-0 bg-card z-10">
+              <div className="flex items-center gap-2.5">
+                <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-muted">
+                  <selectedPlan.icon className={`h-[18px] w-[18px] ${selectedPlan.iconColor}`} strokeWidth={2} />
+                </div>
+                <div>
+                  <h3 className="text-[17px] font-bold text-foreground">{selectedPlan.name}</h3>
+                  <p className="text-[12px] text-muted-foreground">{selectedPlan.description}</p>
+                </div>
+              </div>
+              <button onClick={() => setSelectedPlan(null)} className="p-1">
+                <X className="h-5 w-5 text-muted-foreground" />
+              </button>
+            </div>
+
+            {/* Price */}
+            <div className="px-5 pb-4">
+              <div className="flex items-end gap-2">
+                <span className="text-[28px] font-extrabold leading-none text-foreground">
+                  {(billingPeriod === "year" ? selectedPlan.yearlyPrice : selectedPlan.monthlyPrice).toLocaleString("ru-RU")}₽
+                </span>
+                <span className="text-[13px] text-muted-foreground pb-1">
+                  / {billingPeriod === "year" ? "год" : "месяц"}
+                </span>
+              </div>
+              {billingPeriod === "year" && (
+                <p className="text-[12px] text-muted-foreground mt-1">
+                  ≈ {Math.round(selectedPlan.yearlyPrice / 12).toLocaleString("ru-RU")}₽/мес
+                </p>
+              )}
+            </div>
+
+            {/* Features list */}
+            <div className="px-5 pb-5 space-y-3">
+              <p className="text-[13px] font-semibold text-foreground">Что включено:</p>
+              {allFeatureDetails[selectedPlan.id]?.map((feat, i) => (
+                <div key={i} className="flex items-center gap-3 text-[13px]">
+                  {typeof feat.value === "boolean" ? (
+                    feat.value ? (
+                      <Check className="h-4 w-4 text-[hsl(160,84%,39%)] shrink-0" strokeWidth={2.5} />
+                    ) : (
+                      <Minus className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+                    )
+                  ) : (
+                    <Check className="h-4 w-4 text-[hsl(160,84%,39%)] shrink-0" strokeWidth={2.5} />
+                  )}
+                  <span className={typeof feat.value === "boolean" && !feat.value ? "text-muted-foreground" : "text-foreground"}>
+                    {feat.label}{typeof feat.value === "string" ? `: ${feat.value}` : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Buy button */}
+            <div className="px-5 pb-6">
+              <button
+                onClick={handleBuyPlan}
+                disabled={loadingPlan === selectedPlan.id}
+                className="w-full rounded-xl py-3.5 text-[15px] font-semibold bg-[hsl(160,84%,39%)] text-white hover:opacity-90 transition-all active:scale-[0.97] disabled:opacity-60"
+              >
+                {loadingPlan === selectedPlan.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                ) : (
+                  `Купить за ${(billingPeriod === "year" ? selectedPlan.yearlyPrice : selectedPlan.monthlyPrice).toLocaleString("ru-RU")}₽`
+                )}
+              </button>
+              <p className="text-[11px] text-muted-foreground text-center mt-2">
+                Оплата через ЮKassa · Visa, Mastercard, МИР
+              </p>
             </div>
           </div>
         </div>

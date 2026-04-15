@@ -11,9 +11,7 @@ const mainNav = [
   { path: "/saved-news", label: "Сохранённые", icon: Bookmark },
 ];
 
-const bottomNav = [
-  { path: "/settings", label: "Настройки", icon: Settings },
-];
+const bottomNav: typeof mainNav = [];
 
 export default function DesktopSidebar() {
   const location = useLocation();
@@ -23,7 +21,7 @@ export default function DesktopSidebar() {
   return (
     <aside className="w-[240px] shrink-0 border-r border-border bg-card h-screen sticky top-0 flex flex-col">
       {/* Logo */}
-      <div className="px-5 h-16 flex items-center border-b border-border">
+      <div className="px-5 h-16 flex items-center border-b border-border cursor-pointer" onClick={() => navigate("/news")}>
         <span className="text-xl font-bold tracking-[-0.02em]">
           <span className="text-primary">Emit</span>
           <span className="text-foreground">ly</span>
@@ -53,6 +51,7 @@ export default function DesktopSidebar() {
         <div className="h-px bg-border my-3" />
 
         <button
+          onClick={() => window.open("mailto:support@emitly.ru", "_blank")}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         >
           <HelpCircle className="w-[18px] h-[18px] shrink-0" strokeWidth={1.8} />
