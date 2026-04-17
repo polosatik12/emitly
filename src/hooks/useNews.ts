@@ -19,6 +19,7 @@ export interface NewsItem {
   bearPercent: number;
   comments: number;
   commentsList: { name: string; date: string; text: string; likes: number }[];
+  sourceUrl?: string | null;
 }
 
 function mapRow(row: any): NewsItem {
@@ -40,6 +41,7 @@ function mapRow(row: any): NewsItem {
     bearPercent: 50,
     comments: 0,
     commentsList: [],
+    sourceUrl: row.source_url ?? null,
   };
 }
 

@@ -94,12 +94,19 @@ export default function EmitterProfilePage() {
           </div>
         </div>
         <button
-          onClick={() => {
-            if (ticker) {
-              isSubscribed(ticker.toUpperCase()) ? unsubscribe(ticker.toUpperCase()) : subscribe(ticker.toUpperCase());
+          onClick={async () => {
+            console.log("[subscribe-btn] clicked", { ticker, isSub: ticker ? isSubscribed(ticker.toUpperCase()) : null });
+            if (!ticker) return;
+            const t = ticker.toUpperCase();
+            if (isSubscribed(t)) {
+              await unsubscribe(t);
+            } else {
+              const ok = await subscribe(t);
+              console.log("[subscribe-btn] subscribe result", ok);
             }
           }}
-          className="p-1.5"
+          className="p-1.5 active:scale-90 transition-transform"
+          aria-label="Подписаться"
         >
           {ticker && isSubscribed(ticker.toUpperCase()) ? (
             <Bell className="w-5 h-5 text-primary" />

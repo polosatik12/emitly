@@ -9,11 +9,17 @@ import { supabase } from "@/lib/supabaseProxy";
 import { useNews, type NewsItem } from "@/hooks/useNews";
 import { useEmitterSubscriptions } from "@/hooks/useEmitterSubscriptions";
 import { SubscribedEmittersStrip } from "@/components/SubscribedEmittersStrip";
+import { usePlan } from "@/hooks/usePlan";
+import { useReadHotNews } from "@/hooks/useReadHotNews";
+import { getEmitterByTicker } from "@/data/emitters";
 
 export default function NewsPage() {
   const { news: allNews, loading: newsLoading } = useNews();
   const { subscriptions } = useEmitterSubscriptions();
+  const { isSourceAllowed } = usePlan();
+  const { markRead, isRead } = useReadHotNews();
   const navigate = useNavigate();
+  const openNews = (n: NewsItem) => { markRead(n.id); setSelectedNews(n); };
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [companyFilterOpen, setCompanyFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -56,8 +62,8 @@ export default function NewsPage() {
 
   return (
     <div className="flex flex-col min-h-screen max-w-lg mx-auto pb-[60px] bg-background">
-      {/* Header — Emitly */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-1.5">
+      {/* Header — Emitly с встроенным strip кружков */}
+      <div className="flex items-center gap-2 px-4 pt-3 pb-1.5">
         <button onClick={() => navigate("/profile")} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted border-2 border-border overflow-hidden active:scale-95 transition-transform">
           {avatarUrl ? (
             <img src={avatarUrl} alt="avatar" className="h-full w-full object-cover" />
@@ -65,7 +71,13 @@ export default function NewsPage() {
             <span className="text-[13px] font-bold text-muted-foreground">{initials}</span>
           )}
         </button>
-        <div className="flex items-center gap-1.5">
+
+        {/* Strip кружков занимает всё свободное место между аватаром и логотипом */}
+        <div className="flex-1 min-w-0">
+          <SubscribedEmittersStrip tickers={[]} onSelectNews={openNews} compact />
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
           <span className="text-[18px] tracking-[-0.02em]">
             <span className="font-extrabold text-primary">Emit</span><span className="font-extrabold text-foreground">ly</span>
           </span>
@@ -76,7 +88,7 @@ export default function NewsPage() {
       </div>
 
       {/* Search */}
-      <div className="px-4 mb-2.5">
+      <div className="px-4 mb-2.5 mt-1">
         <div className="relative">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[15px] h-[15px] text-muted-foreground" />
           <input
@@ -89,8 +101,38 @@ export default function NewsPage() {
         </div>
       </div>
 
-      {/* Subscribed emitters strip */}
-      <SubscribedEmittersStrip tickers={subscriptions} />
+      {/* Подписанные эмитенты — кружки под поиском */}
+      {subscriptions.length > 0 && (
+        <div className="px-4 mb-2.5">
+          <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
+            {subscriptions.map((ticker) => {
+              const emitter = getEmitterByTicker(ticker);
+              if (!emitter) return null;
+              return (
+                <button
+                  key={ticker}
+                  onClick={() => navigate(`/emitter/${ticker}`)}
+                  className="flex flex-col items-center gap-1 shrink-0 active:scale-95 transition-transform"
+                  aria-label={emitter.name}
+                >
+                  <div className="w-[44px] h-[44px] rounded-full p-[2px] bg-gradient-to-br from-primary via-primary/60 to-accent">
+                    <div className="w-full h-full rounded-full bg-card flex items-center justify-center overflow-hidden border-2 border-background">
+                      <img
+                        src={emitter.logo}
+                        alt={emitter.name}
+                        className="w-[28px] h-[28px] object-contain rounded-full"
+                      />
+                    </div>
+                  </div>
+                  <span className="text-[9px] font-medium text-muted-foreground truncate max-w-[60px]">
+                    {emitter.ticker}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="px-4 mb-2.5">
@@ -110,11 +152,21 @@ export default function NewsPage() {
             n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
             n.ticker.toLowerCase().includes(searchQuery.toLowerCase())
           )
-          .map((news, i) => (
-            <div key={i} className="animate-card-enter" style={{ animationDelay: `${i * 50}ms` }}>
-              <NewsCard {...news} onClick={() => setSelectedNews(news)} />
-            </div>
-          ))}
+          .map((news, i) => {
+            const src = (news as any).source as string | undefined;
+            const locked = !isSourceAllowed(src);
+            return (
+              <div key={i} className="animate-card-enter" style={{ animationDelay: `${i * 50}ms` }}>
+                <NewsCard
+                  {...news}
+                  source={src}
+                  locked={locked}
+                  read={isRead(news.id)}
+                  onClick={() => !locked && openNews(news)}
+                />
+              </div>
+            );
+          })}
       </div>
 
       <FiltersModal open={filtersOpen} onClose={() => setFiltersOpen(false)} />

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/lib/supabaseProxy";
 import { toast } from "sonner";
-import { Mail, Lock, User, ArrowLeft, Send } from "lucide-react";
+import { Mail, Lock, User, ArrowLeft, Send, Eye, EyeOff } from "lucide-react";
 import {
   InputOTP,
   InputOTPGroup,
@@ -30,6 +30,7 @@ export default function AuthPage() {
   const [displayName, setDisplayName] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [tgLoading, setTgLoading] = useState(false);
   const [botUsername, setBotUsername] = useState<string | null>(null);
   const [botId, setBotId] = useState<string | null>(null);
@@ -346,14 +347,22 @@ export default function AuthPage() {
         <div className="relative">
           <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
-            type="password"
+            type={showPassword ? "text" : "password"}
             placeholder="Пароль"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={6}
-            className="w-full bg-card border border-border rounded-xl pl-10 pr-4 py-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+            className="w-full bg-card border border-border rounded-xl pl-10 pr-11 py-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
           />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
         </div>
 
         <button

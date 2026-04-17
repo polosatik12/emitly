@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseProxy";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import RequisitesModal from "@/components/RequisitesModal";
+import SubscriptionCard from "@/components/SubscriptionCard";
 
 interface ProfileCardData {
   displayName: string;
@@ -242,59 +243,8 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Desktop inline settings */}
-        {!isMobile && (
-          <div className="rounded-2xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 mb-1">
-              <Settings className="h-[18px] w-[18px] text-primary" strokeWidth={1.8} />
-              <h2 className="text-[16px] font-bold text-foreground">Настройки</h2>
-            </div>
-            <p className="text-[13px] text-muted-foreground mb-4">
-              Эти данные необязательны и используются для персонализации
-            </p>
-
-            {/* ФИО */}
-            <div>
-              <label className="text-[14px] font-semibold text-foreground">ФИО</label>
-              <div className="mt-2 flex items-center gap-3 rounded-xl border border-border bg-background px-4 py-3">
-                <User className="h-[18px] w-[18px] text-muted-foreground shrink-0" strokeWidth={1.8} />
-                <input
-                  type="text"
-                  value={settingsName}
-                  onChange={(e) => setSettingsName(e.target.value)}
-                  placeholder="Иванов Иван Иванович"
-                  className="flex-1 bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground outline-none"
-                  maxLength={100}
-                />
-              </div>
-            </div>
-
-            {/* Телефон */}
-            <div className="mt-4">
-              <label className="text-[14px] font-semibold text-foreground">Телефон</label>
-              <div className="mt-2 flex items-center gap-3 rounded-xl border border-border bg-background px-4 py-3">
-                <Phone className="h-[18px] w-[18px] text-muted-foreground shrink-0" strokeWidth={1.8} />
-                <input
-                  type="tel"
-                  value={settingsPhone}
-                  onChange={(e) => setSettingsPhone(e.target.value)}
-                  placeholder="+7 (999) 123-45-67"
-                  className="flex-1 bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground outline-none"
-                  maxLength={20}
-                />
-              </div>
-            </div>
-
-            <button
-              onClick={handleSaveSettings}
-              disabled={savingSettings}
-              className="mt-5 w-full rounded-xl bg-primary py-3 text-[15px] font-semibold text-primary-foreground active:scale-[0.97] transition-transform disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {savingSettings && <Loader2 className="h-4 w-4 animate-spin" />}
-              {savingSettings ? "Сохранение..." : "Сохранить"}
-            </button>
-          </div>
-        )}
+        {/* Активная подписка с таймером */}
+        <SubscriptionCard />
 
         {/* Saved news */}
         <div className="rounded-2xl border border-border bg-card p-4 active:scale-[0.98] transition-transform cursor-pointer" onClick={() => navigate("/saved-news")}>

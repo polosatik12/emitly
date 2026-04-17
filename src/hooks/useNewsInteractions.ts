@@ -8,6 +8,7 @@ interface CommentRow {
   text: string;
   likes: number;
   created_at: string;
+  parent_id: string | null;
 }
 
 interface VoteAgg {
@@ -89,15 +90,29 @@ export function useNewsComments(newsId: string | null) {
     return () => { supabase.removeChannel(channel); };
   }, [newsId, fetchComments]);
 
-  const addComment = async (text: string) => {
+  const addComment = async (text: string, parentId: string | null = null) => {
     const user = await getCachedUser();
     if (!user || !newsId) return false;
-    const { error } = await supabase.from("news_comments").insert({
-      news_id: newsId,
-      user_id: user.id,
-      text,
-    });
-    return !error;
+    const { data, error } = await supabase
+      .from("news_comments")
+      .insert({ news_id: newsId, user_id: user.id, text, parent_id: parentId })
+      .select()
+      .single();
+    if (error || !data) return false;
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const display_name = profile?.display_name || "Пользователь";
+
+    setComments((prev) =>
+      prev.some((c) => c.id === data.id)
+        ? prev
+        : [...prev, { ...(data as CommentRow), display_name }]
+    );
+    return true;
   };
 
   return { comments, loading, addComment };

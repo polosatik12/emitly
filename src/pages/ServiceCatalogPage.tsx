@@ -1,17 +1,19 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Users, Bell, Globe, Headphones, Check, Minus, FileText, Copy, X, Download, Sparkles, Crown, Zap, Loader2 } from "lucide-react";
+import { ArrowLeft, Users, Bell, Globe, Headphones, Check, Minus, FileText, Copy, X, Download, Sparkles, Crown, Zap, Loader2, CheckCircle2 } from "lucide-react";
 import { downloadFile } from "@/lib/download";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseProxy";
 import { toast } from "@/hooks/use-toast";
+import { markPaymentPending } from "@/components/PaymentSuccessModal";
+import { usePlan } from "@/hooks/usePlan";
 
 const plans = [
   {
-    id: "trial",
-    name: "Пробный",
+    id: "free",
+    name: "Free",
     monthlyPrice: 0,
     yearlyPrice: 0,
-    description: "Знакомство с сервисом",
+    description: "Полный доступ на 7 дней",
     icon: Zap,
     iconColor: "text-muted-foreground",
     borderColor: "border-border",
@@ -19,24 +21,24 @@ const plans = [
     highlighted: false,
     isTrial: true,
     features: {
-      emitters: "1",
-      notifications: "До 10/день",
-      sources: "5 основных",
-      support: "FAQ",
-      analytics: false,
-      anomalies: false,
-      insiders: false,
-      exclusive: false,
+      emitters: "Все",
+      notifications: "Все каналы",
+      sources: "Все источники",
+      support: "Общий чат",
+      analytics: true,
+      anomalies: true,
+      insiders: true,
+      exclusive: true,
       priority: false,
     },
-    buttonText: "Попробовать бесплатно",
+    buttonText: "Активен 7 дней",
     buttonVariant: "outline" as const,
   },
   {
     id: "base",
     name: "Base",
-    monthlyPrice: 199,
-    yearlyPrice: 1990,
+    monthlyPrice: 10,
+    yearlyPrice: 100,
     description: "Для начинающих инвесторов",
     icon: Zap,
     iconColor: "text-blue-500",
@@ -45,10 +47,10 @@ const plans = [
     highlighted: false,
     isTrial: false,
     features: {
-      emitters: "5",
-      notifications: "Без ограничений",
-      sources: "15 расширенных",
-      support: "Email (24ч)",
+      emitters: "До 5",
+      notifications: "TG · сайт · email",
+      sources: "До 10",
+      support: "Общий чат",
       analytics: false,
       anomalies: false,
       insiders: false,
@@ -61,8 +63,8 @@ const plans = [
   {
     id: "premium",
     name: "Premium",
-    monthlyPrice: 299,
-    yearlyPrice: 2990,
+    monthlyPrice: 20,
+    yearlyPrice: 200,
     description: "Для активных инвесторов",
     icon: Sparkles,
     iconColor: "text-[hsl(160,84%,39%)]",
@@ -71,10 +73,10 @@ const plans = [
     highlighted: true,
     isTrial: false,
     features: {
-      emitters: "20",
-      notifications: "Мгновенные",
-      sources: "25+ источников",
-      support: "Чат (4ч)",
+      emitters: "До 20",
+      notifications: "TG · сайт · email",
+      sources: "До 20",
+      support: "Общий чат",
       analytics: true,
       anomalies: true,
       insiders: true,
@@ -97,14 +99,14 @@ const plans = [
     highlighted: false,
     isTrial: false,
     features: {
-      emitters: "50",
-      notifications: "Приоритетные",
-      sources: "Все + эксклюзивные",
-      support: "24/7 (1ч)",
+      emitters: "До 50",
+      notifications: "TG · сайт · email",
+      sources: "Все источники",
+      support: "Общий чат",
       analytics: true,
       anomalies: true,
       insiders: true,
-      exclusive: true,
+      exclusive: false,
       priority: true,
     },
     buttonText: "Выбрать план",
@@ -120,7 +122,6 @@ const featureRows = [
   { key: "analytics" as const, label: "Аналитика", icon: null },
   { key: "anomalies" as const, label: "Торговые аномалии", icon: null },
   { key: "insiders" as const, label: "Сделки инсайдеров", icon: null },
-  { key: "exclusive" as const, label: "Эксклюзивные источники", icon: null },
   { key: "priority" as const, label: "Приоритетная поддержка", icon: null },
 ];
 
@@ -136,49 +137,41 @@ const requisites = [
 ];
 
 const allFeatureDetails: Record<string, { label: string; value: string | boolean }[]> = {
-  trial: [
-    { label: "Эмитенты", value: "1 эмитент" },
-    { label: "Уведомления", value: "До 10 в день" },
-    { label: "Источники новостей", value: "5 основных" },
-    { label: "Поддержка", value: "FAQ" },
-    { label: "Срок действия", value: "48 часов" },
-    { label: "Аналитика", value: false },
-    { label: "Торговые аномалии", value: false },
-    { label: "Сделки инсайдеров", value: false },
-    { label: "Эксклюзивные источники", value: false },
-    { label: "Приоритетная поддержка", value: false },
+  free: [
+    { label: "Полный доступ", value: "Все функции Pro" },
+    { label: "Срок", value: "7 дней с регистрации" },
+    { label: "Эмитенты", value: "Без ограничений" },
+    { label: "Источники", value: "Все" },
+    { label: "После окончания", value: "Блокировка до оплаты" },
   ],
   base: [
-    { label: "Эмитенты", value: "5 эмитентов" },
-    { label: "Уведомления", value: "Без ограничений" },
-    { label: "Источники новостей", value: "15 расширенных" },
-    { label: "Поддержка", value: "Email (время ответа 24ч)" },
+    { label: "Эмитенты", value: "До 5" },
+    { label: "Источники новостей", value: "До 10 на выбор" },
+    { label: "Уведомления", value: "Telegram, сайт, email" },
+    { label: "Поддержка", value: "Общий чат сообщества" },
     { label: "Аналитика", value: false },
     { label: "Торговые аномалии", value: false },
     { label: "Сделки инсайдеров", value: false },
-    { label: "Эксклюзивные источники", value: false },
     { label: "Приоритетная поддержка", value: false },
   ],
   premium: [
-    { label: "Эмитенты", value: "20 эмитентов" },
-    { label: "Уведомления", value: "Мгновенные push-уведомления" },
-    { label: "Источники новостей", value: "25+ источников" },
-    { label: "Поддержка", value: "Чат (время ответа 4ч)" },
+    { label: "Эмитенты", value: "До 20" },
+    { label: "Источники новостей", value: "До 20 на выбор" },
+    { label: "Уведомления", value: "Telegram, сайт, email" },
+    { label: "Поддержка", value: "Общий чат сообщества" },
     { label: "Аналитика", value: true },
     { label: "Торговые аномалии", value: true },
     { label: "Сделки инсайдеров", value: true },
-    { label: "Эксклюзивные источники", value: false },
     { label: "Приоритетная поддержка", value: false },
   ],
   pro: [
-    { label: "Эмитенты", value: "50 эмитентов" },
-    { label: "Уведомления", value: "Приоритетные (первым)" },
-    { label: "Источники новостей", value: "Все + эксклюзивные" },
-    { label: "Поддержка", value: "24/7 (время ответа 1ч)" },
+    { label: "Эмитенты", value: "До 50" },
+    { label: "Источники новостей", value: "Все источники" },
+    { label: "Уведомления", value: "Telegram, сайт, email" },
+    { label: "Поддержка", value: "Общий чат сообщества" },
     { label: "Аналитика", value: true },
     { label: "Торговые аномалии", value: true },
     { label: "Сделки инсайдеров", value: true },
-    { label: "Эксклюзивные источники", value: true },
     { label: "Приоритетная поддержка", value: true },
   ],
 };
@@ -186,6 +179,7 @@ const allFeatureDetails: Record<string, { label: string; value: string | boolean
 export default function ServiceCatalogPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { planId: currentPlanId, isTrial, trialActive, expiresAt } = usePlan();
   const [billingPeriod, setBillingPeriod] = useState<"month" | "year">("month");
   const [showRequisites, setShowRequisites] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -193,10 +187,29 @@ export default function ServiceCatalogPage() {
   const [selectedPlan, setSelectedPlan] = useState<typeof plans[0] | null>(null);
 
   const paymentStatus = searchParams.get("payment");
+  const isCurrent = (id: string) => {
+    // Платная подписка имеет приоритет над триалом
+    if (!isTrial && currentPlanId !== "free") return currentPlanId === id;
+    // Активный триал — «текущим» считается карточка Free
+    if (isTrial && trialActive) return id === "free";
+    return false;
+  };
+  const formattedExpiry = expiresAt
+    ? new Date(expiresAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
+    : null;
 
   const handleOpenPlanModal = (plan: typeof plans[0]) => {
     if (plan.isTrial) {
       toast({ title: "Пробный период", description: "Пробный период активируется автоматически при регистрации." });
+      return;
+    }
+    if (isCurrent(plan.id)) {
+      toast({
+        title: "Тариф уже активен",
+        description: formattedExpiry
+          ? `Действует до ${formattedExpiry}. Продление будет доступно после окончания.`
+          : "Этот тариф уже активен.",
+      });
       return;
     }
     setSelectedPlan(plan);
@@ -205,6 +218,15 @@ export default function ServiceCatalogPage() {
   const handleBuyPlan = async () => {
     if (!selectedPlan) return;
     const plan = selectedPlan;
+
+    if (isCurrent(plan.id)) {
+      toast({
+        title: "Тариф уже активен",
+        description: formattedExpiry ? `Действует до ${formattedExpiry}.` : "Этот тариф уже активен.",
+      });
+      setSelectedPlan(null);
+      return;
+    }
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -228,7 +250,20 @@ export default function ServiceCatalogPage() {
       if (error) throw error;
 
       if (data?.confirmation_url) {
-        window.location.href = data.confirmation_url;
+        // Помечаем платёж как ожидающий — глобальная PaymentSuccessModal
+        // поймает активацию подписки в фоне и сразу покажет окно успеха.
+        markPaymentPending();
+        // Превью Lovable открывается в iframe — выходим в топ-окно,
+        // иначе ЮKassa блокирует переход через X-Frame-Options.
+        try {
+          if (window.top && window.top !== window.self) {
+            window.top.location.href = data.confirmation_url;
+          } else {
+            window.location.assign(data.confirmation_url);
+          }
+        } catch {
+          window.open(data.confirmation_url, "_blank", "noopener");
+        }
       } else {
         throw new Error("No confirmation URL received");
       }
@@ -247,9 +282,7 @@ export default function ServiceCatalogPage() {
   };
 
   useEffect(() => {
-    if (paymentStatus === "success") {
-      toast({ title: "Оплата получена!", description: "Ваша подписка активирована. Спасибо!" });
-    }
+    // Уведомление об успешной оплате теперь показывает PaymentSuccessModal (глобально в AppLayout)
   }, [paymentStatus]);
 
   return (
@@ -377,15 +410,22 @@ export default function ServiceCatalogPage() {
                 {/* CTA */}
                 <button
                   onClick={() => handleOpenPlanModal(plan)}
-                  disabled={loadingPlan === plan.id}
-                  className={`mt-5 w-full rounded-xl py-3 text-[14px] font-semibold transition-all active:scale-[0.97] disabled:opacity-60 ${
-                    plan.buttonVariant === "primary"
+                  disabled={loadingPlan === plan.id || isCurrent(plan.id)}
+                  className={`mt-5 w-full rounded-xl py-3 text-[14px] font-semibold transition-all active:scale-[0.97] disabled:opacity-70 disabled:cursor-not-allowed ${
+                    isCurrent(plan.id)
+                      ? "bg-primary/10 text-primary border-2 border-primary/30 active:scale-100 flex items-center justify-center gap-1.5"
+                      : plan.buttonVariant === "primary"
                       ? "bg-[hsl(160,84%,39%)] text-white hover:opacity-90"
                       : "border border-border bg-background text-foreground hover:bg-muted"
                   }`}
                 >
                   {loadingPlan === plan.id ? (
                     <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                  ) : isCurrent(plan.id) ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" strokeWidth={2.4} />
+                      Текущий тариф
+                    </>
                   ) : (
                     plan.buttonText
                   )}

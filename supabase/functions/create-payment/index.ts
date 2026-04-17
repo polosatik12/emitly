@@ -66,7 +66,9 @@ Deno.serve(async (req) => {
       },
       confirmation: {
         type: "redirect",
-        return_url: `${req.headers.get("origin") || "https://sweet-front-redo.lovable.app"}/service-catalog?payment=success`,
+        // Всегда возвращаем пользователя на боевой домен emitly.ru,
+        // чтобы в кабинете ЮKassa и на странице оплаты ссылка была фирменной.
+        return_url: "https://emitly.ru/service-catalog?payment=success",
       },
       capture: true,
       description,

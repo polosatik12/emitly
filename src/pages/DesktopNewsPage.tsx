@@ -4,7 +4,14 @@ import { Search, SlidersHorizontal, Clock, TrendingUp, TrendingDown, ChevronRigh
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { FiltersModal } from "@/components/FiltersModal";
 import NewsDetailDrawer from "@/components/NewsDetailDrawer";
+import { GreenlandCircle } from "@/components/GreenlandCircle";
+import { HotNewsCircle } from "@/components/HotNewsCircle";
 import { useNews, type NewsItem } from "@/hooks/useNews";
+import { useHotNews } from "@/hooks/useHotNews";
+import { useReadHotNews } from "@/hooks/useReadHotNews";
+import { useEmitterSubscriptions } from "@/hooks/useEmitterSubscriptions";
+import { getEmitterByTicker } from "@/data/emitters";
+import { useNavigate } from "react-router-dom";
 
 import logoSber from "@/assets/logo-sber.jpg";
 import logoSmlt from "@/assets/logo-smlt.png";
@@ -40,14 +47,14 @@ const tickerLogos: Record<string, string> = {
 // NewsItem type imported from useNews
 
 /* ── Hero card (first news, large) ── */
-const HeroCard = React.memo(function HeroCard({ news, onClick }: { news: NewsItem; onClick: () => void }) {
+const HeroCard = React.memo(function HeroCard({ news, onClick, read = false }: { news: NewsItem; onClick: () => void; read?: boolean }) {
   const logo = tickerLogos[news.ticker];
   const bottomColor = categoryBottomColors[news.category] || "#BDC3C7";
 
   return (
     <div
       onClick={onClick}
-      className="bg-card rounded-2xl border border-border overflow-hidden cursor-pointer hover:shadow-xl hover:-translate-y-[2px] transition-all duration-200 group"
+      className={`bg-card rounded-2xl border border-border overflow-hidden cursor-pointer hover:shadow-xl hover:-translate-y-[2px] transition-all duration-200 group ${read ? "opacity-60" : ""}`}
     >
       {/* Gradient accent top */}
       <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, ${bottomColor}, ${bottomColor}88)` }} />
@@ -101,14 +108,14 @@ const HeroCard = React.memo(function HeroCard({ news, onClick }: { news: NewsIte
 });
 
 /* ── Small card (grid items) ── */
-const SmallCard = React.memo(function SmallCard({ news, onClick }: { news: NewsItem; onClick: () => void }) {
+const SmallCard = React.memo(function SmallCard({ news, onClick, read = false }: { news: NewsItem; onClick: () => void; read?: boolean }) {
   const logo = tickerLogos[news.ticker];
   const bottomColor = categoryBottomColors[news.category] || "#BDC3C7";
 
   return (
     <div
       onClick={onClick}
-      className="bg-card rounded-xl border border-border overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-[1px] transition-all duration-200 group flex flex-col"
+      className={`bg-card rounded-xl border border-border overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-[1px] transition-all duration-200 group flex flex-col ${read ? "opacity-60" : ""}`}
     >
       <div className="h-[3px] w-full" style={{ backgroundColor: bottomColor }} />
       <div className="p-4 flex-1 flex flex-col">
@@ -162,6 +169,9 @@ const SmallCard = React.memo(function SmallCard({ news, onClick }: { news: NewsI
 
 export default function DesktopNewsPage() {
   const { news: allNews } = useNews();
+  const hot = useHotNews(allNews);
+  const { subscriptions } = useEmitterSubscriptions();
+  const navigate = useNavigate();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -186,12 +196,13 @@ export default function DesktopNewsPage() {
       }
       return true;
     });
-  }, [debouncedQuery, activeCategory]);
+  }, [allNews, debouncedQuery, activeCategory]);
 
   const heroNews = filteredNews[0] ?? null;
   const gridNews = filteredNews.slice(1);
 
-  const handleSelectNews = useCallback((news: NewsItem) => setSelectedNews(news), []);
+  const { markRead, isRead } = useReadHotNews();
+  const handleSelectNews = useCallback((news: NewsItem) => { markRead(news.id); setSelectedNews(news); }, [markRead]);
   const handleCloseNews = useCallback(() => setSelectedNews(null), []);
   const handleOpenFilters = useCallback(() => setFiltersOpen(true), []);
   const handleCloseFilters = useCallback(() => setFiltersOpen(false), []);
@@ -199,6 +210,19 @@ export default function DesktopNewsPage() {
   return (
     <div className="max-w-[860px] mx-auto py-6 px-6">
       <h1 className="text-2xl font-bold text-foreground mb-5">Главная</h1>
+
+      {/* Special topic + hot news circles */}
+      <div className="flex items-center gap-3 mb-5 overflow-x-auto scrollbar-hide pb-1">
+        <GreenlandCircle size="md" />
+        {hot.map((item) => (
+          <HotNewsCircle
+            key={item.news.id}
+            item={item}
+            size="md"
+            onClick={() => handleSelectNews(item.news)}
+          />
+        ))}
+      </div>
 
       {/* Categories */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
@@ -238,10 +262,35 @@ export default function DesktopNewsPage() {
         </button>
       </div>
 
+      {/* Подписанные эмитенты — кружки под поиском */}
+      {subscriptions.length > 0 && (
+        <div className="mb-6 flex gap-3 overflow-x-auto scrollbar-hide pb-1">
+          {subscriptions.map((ticker) => {
+            const emitter = getEmitterByTicker(ticker);
+            if (!emitter) return null;
+            return (
+              <button
+                key={ticker}
+                onClick={() => navigate(`/emitter/${ticker}`)}
+                className="flex flex-col items-center gap-1 shrink-0 hover:scale-105 transition-transform"
+                aria-label={emitter.name}
+              >
+                <div className="w-[44px] h-[44px] rounded-full p-[2px] bg-gradient-to-br from-primary via-primary/60 to-accent">
+                  <div className="w-full h-full rounded-full bg-card flex items-center justify-center overflow-hidden border-2 border-background">
+                    <img src={emitter.logo} alt={emitter.name} className="w-[28px] h-[28px] object-contain rounded-full" />
+                  </div>
+                </div>
+                <span className="text-[9px] font-medium text-muted-foreground truncate max-w-[60px]">{emitter.ticker}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Hero card */}
       {heroNews && (
         <div className="mb-5">
-          <HeroCard news={heroNews} onClick={() => handleSelectNews(heroNews)} />
+          <HeroCard news={heroNews} read={isRead(heroNews.id)} onClick={() => handleSelectNews(heroNews)} />
         </div>
       )}
 
@@ -249,7 +298,7 @@ export default function DesktopNewsPage() {
       {gridNews.length > 0 && (
         <div className="grid grid-cols-2 gap-4">
           {gridNews.map((news) => (
-            <SmallCard key={news.id} news={news} onClick={() => handleSelectNews(news)} />
+            <SmallCard key={news.id} news={news} read={isRead(news.id)} onClick={() => handleSelectNews(news)} />
           ))}
         </div>
       )}

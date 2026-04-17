@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { X, ChevronDown } from "lucide-react";
 import { FilterChip } from "./FilterChip";
 import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -8,17 +8,48 @@ interface FiltersModalProps {
   onClose: () => void;
 }
 
-const categories = ["Все категории", "Отчётность", "Дивиденды", "Сделки", "Менеджмент", "Аналитика", "Регуляторика", "Инсайды", "Макро", "События"];
-const sources = ["Все источники", "РБК", "Интерфакс", "ТАСС", "Ведомости", "Smart-Lab", "Финам"];
+const categories = ["Все категории", "Отчётность", "Дивиденды", "Сделки", "Менеджмент", "Аналитика", "Регуляторика", "Инсайды", "Макро", "События", "Аномальные объёмы"];
 const periods = ["Всё время", "Сегодня", "Неделя", "Месяц"];
-const sectors = ["Все секторы", "Нефть и газ", "Банки", "Металлы", "Телеком", "Ритейл", "Энергетика", "Транспорт", "IT", "Химия"];
+const sectors = ["Нефть и газ", "Банки", "Металлы", "Телеком", "Ритейл", "Энергетика", "Транспорт", "IT", "Химия"];
+
+// Sources: first 4 visible by default, rest behind "Ещё"
+const primarySources = ["РБК", "Интерфакс", "ТАСС", "Ведомости"];
+const extraSources = ["Smart-Lab", "Финам", "Коммерсантъ", "Forbes", "E-Disclosure", "MOEX", "Banki.ru", "Frank Media"];
+
+const ALL_SECTORS = "Все секторы";
+const ALL_SOURCES = "Все источники";
 
 export function FiltersModal({ open, onClose }: FiltersModalProps) {
   const isMobile = useIsMobile();
   const [selectedCategory, setSelectedCategory] = useState("Все категории");
-  const [selectedSource, setSelectedSource] = useState("Все источники");
   const [selectedPeriod, setSelectedPeriod] = useState("Всё время");
-  const [selectedSector, setSelectedSector] = useState("Все секторы");
+  const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
+  const [selectedSources, setSelectedSources] = useState<string[]>([]);
+  const [showMoreSources, setShowMoreSources] = useState(false);
+
+  const toggleSector = (sector: string) => {
+    if (sector === ALL_SECTORS) {
+      setSelectedSectors([]);
+      return;
+    }
+    setSelectedSectors((prev) =>
+      prev.includes(sector) ? prev.filter((s) => s !== sector) : [...prev, sector]
+    );
+  };
+  const isSectorActive = (sector: string) =>
+    sector === ALL_SECTORS ? selectedSectors.length === 0 : selectedSectors.includes(sector);
+
+  const toggleSource = (source: string) => {
+    if (source === ALL_SOURCES) {
+      setSelectedSources([]);
+      return;
+    }
+    setSelectedSources((prev) =>
+      prev.includes(source) ? prev.filter((s) => s !== source) : [...prev, source]
+    );
+  };
+  const isSourceActive = (source: string) =>
+    source === ALL_SOURCES ? selectedSources.length === 0 : selectedSources.includes(source);
 
   return (
     <>
@@ -45,9 +76,95 @@ export function FiltersModal({ open, onClose }: FiltersModalProps) {
           </div>
 
           <Section title="Категория" items={categories} selected={selectedCategory} onSelect={setSelectedCategory} />
-          <Section title="Источник" items={sources} selected={selectedSource} onSelect={setSelectedSource} />
           <Section title="Период" items={periods} selected={selectedPeriod} onSelect={setSelectedPeriod} />
-          <Section title="Сектор" items={sectors} selected={selectedSector} onSelect={setSelectedSector} />
+
+          {/* Sector — multi-select */}
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-2.5">
+              <p className="text-[12.5px] text-muted-foreground">
+                Сектор
+                {selectedSectors.length > 0 && (
+                  <span className="ml-1.5 text-primary font-medium">· {selectedSectors.length}</span>
+                )}
+              </p>
+              {selectedSectors.length > 0 && (
+                <button
+                  onClick={() => setSelectedSectors([])}
+                  className="text-[12px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Сбросить
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-[6px]">
+              <FilterChip
+                label={ALL_SECTORS}
+                selected={isSectorActive(ALL_SECTORS)}
+                onClick={() => toggleSector(ALL_SECTORS)}
+              />
+              {sectors.map((item) => (
+                <FilterChip
+                  key={item}
+                  label={item}
+                  selected={isSectorActive(item)}
+                  onClick={() => toggleSector(item)}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Source — multi-select with collapsible extras */}
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-2.5">
+              <p className="text-[12.5px] text-muted-foreground">
+                Источник
+                {selectedSources.length > 0 && (
+                  <span className="ml-1.5 text-primary font-medium">· {selectedSources.length}</span>
+                )}
+              </p>
+              {selectedSources.length > 0 && (
+                <button
+                  onClick={() => setSelectedSources([])}
+                  className="text-[12px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Сбросить
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-[6px]">
+              <FilterChip
+                label={ALL_SOURCES}
+                selected={isSourceActive(ALL_SOURCES)}
+                onClick={() => toggleSource(ALL_SOURCES)}
+              />
+              {primarySources.map((item) => (
+                <FilterChip
+                  key={item}
+                  label={item}
+                  selected={isSourceActive(item)}
+                  onClick={() => toggleSource(item)}
+                />
+              ))}
+              {showMoreSources &&
+                extraSources.map((item) => (
+                  <FilterChip
+                    key={item}
+                    label={item}
+                    selected={isSourceActive(item)}
+                    onClick={() => toggleSource(item)}
+                  />
+                ))}
+              <button
+                onClick={() => setShowMoreSources((v) => !v)}
+                className="inline-flex items-center gap-1 px-3 py-[7px] rounded-full text-[13px] font-medium bg-muted text-foreground hover:bg-muted/80 transition-colors active:scale-95"
+              >
+                {showMoreSources ? "Свернуть" : "Ещё"}
+                <ChevronDown
+                  className={`w-3.5 h-3.5 transition-transform ${showMoreSources ? "rotate-180" : ""}`}
+                />
+              </button>
+            </div>
+          </div>
 
           <button
             onClick={onClose}

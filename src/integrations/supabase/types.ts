@@ -59,46 +59,58 @@ export type Database = {
       news: {
         Row: {
           body_text: string
+          categories: string[] | null
           category: string
           company_name: string
           created_at: string
           date: string
+          description: string | null
           full_date: string
           id: string
           price: number
           price_change: number
           price_change_percent: number
+          published_at: string | null
           sector: string
+          source_url: string | null
           ticker: string
           title: string
         }
         Insert: {
           body_text?: string
+          categories?: string[] | null
           category?: string
           company_name: string
           created_at?: string
           date?: string
+          description?: string | null
           full_date?: string
           id?: string
           price?: number
           price_change?: number
           price_change_percent?: number
+          published_at?: string | null
           sector?: string
+          source_url?: string | null
           ticker: string
           title: string
         }
         Update: {
           body_text?: string
+          categories?: string[] | null
           category?: string
           company_name?: string
           created_at?: string
           date?: string
+          description?: string | null
           full_date?: string
           id?: string
           price?: number
           price_change?: number
           price_change_percent?: number
+          published_at?: string | null
           sector?: string
+          source_url?: string | null
           ticker?: string
           title?: string
         }
@@ -131,6 +143,7 @@ export type Database = {
           id: string
           likes: number
           news_id: string
+          parent_id: string | null
           text: string
           user_id: string
         }
@@ -139,6 +152,7 @@ export type Database = {
           id?: string
           likes?: number
           news_id: string
+          parent_id?: string | null
           text: string
           user_id: string
         }
@@ -147,10 +161,19 @@ export type Database = {
           id?: string
           likes?: number
           news_id?: string
+          parent_id?: string | null
           text?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "news_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "news_comments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       news_votes: {
         Row: {
@@ -209,7 +232,12 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          notify_email: boolean
+          notify_telegram: boolean
+          notify_web: boolean
           phone: string | null
+          telegram_chat_id: string | null
+          trial_started_at: string | null
           updated_at: string
           user_id: string
         }
@@ -218,7 +246,12 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          notify_email?: boolean
+          notify_telegram?: boolean
+          notify_web?: boolean
           phone?: string | null
+          telegram_chat_id?: string | null
+          trial_started_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -227,7 +260,12 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          notify_email?: boolean
+          notify_telegram?: boolean
+          notify_web?: boolean
           phone?: string | null
+          telegram_chat_id?: string | null
+          trial_started_at?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -275,12 +313,47 @@ export type Database = {
         }
         Relationships: []
       }
+      user_source_subscriptions: {
+        Row: {
+          created_at: string
+          id: string
+          source: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          source: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          source?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_plan: {
+        Args: { _user_id?: string }
+        Returns: {
+          expires_at: string
+          is_blocked: boolean
+          is_trial: boolean
+          max_emitters: number
+          max_sources: number
+          plan_id: string
+          trial_active: boolean
+          trial_days_left: number
+          trial_started_at: string
+        }[]
+      }
+      start_trial_if_needed: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never

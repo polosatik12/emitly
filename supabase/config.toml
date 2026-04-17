@@ -1,1 +1,4 @@
 project_id = "vkeliqjedbqqhitehoys"
+
+[functions.ingest-news]
+verify_jwt = false

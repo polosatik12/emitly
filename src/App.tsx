@@ -15,6 +15,8 @@ import SavedNewsPage from "@/pages/SavedNewsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import ServiceCatalogPage from "@/pages/ServiceCatalogPage";
 import EmitterProfilePage from "@/pages/EmitterProfilePage";
+import MySourcesPage from "@/pages/MySourcesPage";
+import GreenlandNewsPage from "@/pages/GreenlandNewsPage";
 import NotFound from "./pages/NotFound.tsx";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -32,12 +34,14 @@ function AppRoutes() {
       <Route path="/auth" element={<AuthPage />} />
       <Route element={<AppLayout />}>
         <Route path="/news" element={<AdaptiveNewsPage />} />
+        <Route path="/news/greenland" element={<GreenlandNewsPage />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/saved-news" element={<SavedNewsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/service-catalog" element={<ServiceCatalogPage />} />
+        <Route path="/sources" element={<MySourcesPage />} />
         <Route path="/emitter/:ticker" element={<EmitterProfilePage />} />
       </Route>
       <Route path="*" element={<NotFound />} />

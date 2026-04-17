@@ -9,6 +9,9 @@ const STOCKS_URL =
 const CURRENCY_URL =
   "https://iss.moex.com/iss/engines/currency/markets/selt/boards/CETS/securities.json?iss.meta=off&iss.only=marketdata&marketdata.columns=SECID,LAST,CHANGE,LASTTOPREVPRICE";
 
+const RATES_URL =
+  "https://iss.moex.com/iss/statistics/engines/currency/markets/selt/rates.json?iss.meta=off";
+
 const GOLD_URL =
   "https://iss.moex.com/iss/engines/currency/markets/selt/boards/CETS/securities/GLDRUB_TOM.json?iss.meta=off&iss.only=marketdata&marketdata.columns=SECID,LAST,CHANGE,LASTTOPREVPRICE";
 
@@ -60,11 +63,12 @@ Deno.serve(async (req) => {
 
   try {
     // Fetch stocks, currencies, and metals in parallel
-    const [stocksRes, currencyRes, goldRes, silverRes] = await Promise.all([
+    const [stocksRes, currencyRes, goldRes, silverRes, ratesRes] = await Promise.all([
       fetch(STOCKS_URL),
       fetch(CURRENCY_URL),
       fetch(GOLD_URL),
       fetch(SILVER_URL),
+      fetch(RATES_URL),
     ]);
 
     if (!stocksRes.ok) throw new Error(`MOEX stocks error: ${stocksRes.status}`);
@@ -99,6 +103,31 @@ Deno.serve(async (req) => {
       const silverData = parseMarketdata(silverJson);
       if (silverData["SLVRUB_TOM"]) {
         currencies["XAG"] = silverData["SLVRUB_TOM"];
+      }
+    }
+
+    // Parse EUR from CBRF rates (EUR not traded on CETS board)
+    if (ratesRes.ok) {
+      try {
+        const ratesJson = await ratesRes.json();
+        const cbrf = ratesJson.cbrf;
+        if (cbrf?.data?.[0]) {
+          const cols: string[] = cbrf.columns;
+          const row = cbrf.data[0];
+          const eurIdx = cols.indexOf("CBRF_EUR_LAST");
+          const eurChgIdx = cols.indexOf("CBRF_EUR_LASTCHANGEPRCNT");
+          const eurPrice = row[eurIdx] as number | null;
+          const eurChgPct = row[eurChgIdx] as number | null;
+          if (eurPrice && eurPrice > 0) {
+            currencies["EUR"] = {
+              price: eurPrice,
+              change: 0,
+              changePercent: eurChgPct ?? 0,
+            };
+          }
+        }
+      } catch (e) {
+        console.error("Failed to parse CBRF rates for EUR:", e);
       }
     }
 

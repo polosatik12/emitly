@@ -2,16 +2,9 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, Share2, CalendarDays, ExternalLink, TrendingUp, TrendingDown, Bookmark, BookmarkCheck, Bell, Heart, MessageCircle, Users, LogIn, X, Send } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNewsComments, useNewsBookmark, useNewsVotes } from "@/hooks/useNewsInteractions";
+import { useEmitterSubscriptions } from "@/hooks/useEmitterSubscriptions";
 import { supabase } from "@/lib/supabaseProxy";
-import logoSber from "@/assets/logo-sber.jpg";
-import logoSmlt from "@/assets/logo-smlt.png";
-import logoPosi from "@/assets/logo-posi.png";
-import logoGazp from "@/assets/logo-gazp.png";
-import logoLkoh from "@/assets/logo-lkoh.png";
-
-const tickerLogos: Record<string, string> = {
-  SBER: logoSber, SMLT: logoSmlt, POSI: logoPosi, GAZP: logoGazp, LKOH: logoLkoh,
-};
+import { getEmitterByTicker } from "@/data/emitters";
 
 const avatarColors = [
   "hsl(216 50% 42%)", "hsl(262 40% 48%)", "hsl(0 65% 45%)",
@@ -49,6 +42,7 @@ interface NewsDetailDrawerProps {
     bearPercent: number;
     comments: number;
     commentsList?: { name: string; date: string; text: string; likes: number }[];
+    sourceUrl?: string | null;
   } | null;
 }
 
@@ -57,11 +51,15 @@ export default function NewsDetailDrawer({ open, onClose, news }: NewsDetailDraw
   const [user, setUser] = useState<{ id: string } | null>(null);
   const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [replyTo, setReplyTo] = useState<{ id: string; name: string } | null>(null);
 
   const newsId = news?.id || null;
   const { comments: dbComments, addComment } = useNewsComments(open ? newsId : null);
   const { isBookmarked, toggleBookmark } = useNewsBookmark(open ? newsId : null);
   const { userVote, vote, bullPercent, bearPercent, totalVotes } = useNewsVotes(open ? newsId : null);
+  const { isSubscribed, subscribe, unsubscribe } = useEmitterSubscriptions();
+  const tickerUp = (news?.ticker || "").toUpperCase();
+  const subscribed = !!tickerUp && isSubscribed(tickerUp);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user: u } }) => setUser(u ? { id: u.id } : null));
@@ -75,6 +73,8 @@ export default function NewsDetailDrawer({ open, onClose, news }: NewsDetailDraw
     } else {
       document.body.style.overflow = '';
       document.body.style.paddingRight = '';
+      setReplyTo(null);
+      setCommentText("");
     }
     return () => {
       document.body.style.overflow = '';
@@ -84,34 +84,61 @@ export default function NewsDetailDrawer({ open, onClose, news }: NewsDetailDraw
 
   if (!news) return null;
 
-  const logo = tickerLogos[news.ticker];
+  const logo = getEmitterByTicker(news.ticker)?.logo;
   const isPositive = news.priceChangePercent >= 0;
 
   const handleSubmitComment = async () => {
     if (!commentText.trim() || submitting) return;
     setSubmitting(true);
-    const ok = await addComment(commentText.trim());
-    if (ok) setCommentText("");
+    const ok = await addComment(commentText.trim(), replyTo?.id ?? null);
+    if (ok) {
+      setCommentText("");
+      setReplyTo(null);
+    }
     setSubmitting(false);
   };
 
-  // Merge mock comments with DB comments
-  const allComments = [
+  // Merge mock comments with DB comments (mock — без parent_id, всегда корневые)
+  type UIComment = {
+    key: string;
+    id: string | null; // null = mock (нельзя ответить)
+    name: string;
+    date: string;
+    text: string;
+    likes: number;
+    parent_id: string | null;
+  };
+
+  const allComments: UIComment[] = [
     ...(news.commentsList || []).map((c, i) => ({
       key: `mock-${i}`,
+      id: null,
       name: c.name,
       date: c.date,
       text: c.text,
       likes: c.likes,
+      parent_id: null,
     })),
     ...dbComments.map((c) => ({
       key: c.id,
+      id: c.id,
       name: c.display_name,
       date: formatCommentDate(c.created_at),
       text: c.text,
       likes: c.likes,
+      parent_id: c.parent_id,
     })),
   ];
+
+  const rootComments = allComments.filter((c) => !c.parent_id);
+  const repliesByParent = new Map<string, UIComment[]>();
+  allComments.forEach((c) => {
+    if (c.parent_id) {
+      const arr = repliesByParent.get(c.parent_id) || [];
+      arr.push(c);
+      repliesByParent.set(c.parent_id, arr);
+    }
+  });
 
   const leftColumn = (
     <>
@@ -119,9 +146,7 @@ export default function NewsDetailDrawer({ open, onClose, news }: NewsDetailDraw
       <div className="pt-2 pb-0">
         <div className="flex items-center gap-3">
           {logo && (
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[hsl(var(--border))] bg-card">
-              <img src={logo} alt={news.ticker} className="h-[52px] w-[52px] object-cover" />
-            </div>
+            <img src={logo} alt={news.ticker} className="h-11 w-11 shrink-0 rounded-full object-cover" />
           )}
           <div className="min-w-0 flex-1">
             <div className="text-[14.5px] font-bold leading-tight text-foreground">{news.companyName}</div>
@@ -159,12 +184,19 @@ export default function NewsDetailDrawer({ open, onClose, news }: NewsDetailDraw
       </div>
 
       {/* Open original */}
-      <div className="pt-4">
-        <button className="inline-flex h-[34px] items-center gap-1.5 rounded-full bg-[hsl(var(--news-positive-soft))] px-4 text-[13px] font-medium text-[hsl(var(--news-positive))] active:scale-95 transition-transform">
-          <ExternalLink className="h-[13px] w-[13px]" strokeWidth={2} />
-          Открыть оригинал
-        </button>
-      </div>
+      {news.sourceUrl && (
+        <div className="pt-4">
+          <a
+            href={news.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-[34px] items-center gap-1.5 rounded-full bg-[hsl(var(--news-positive-soft))] px-4 text-[13px] font-medium text-[hsl(var(--news-positive))] active:scale-95 transition-transform hover:opacity-90"
+          >
+            <ExternalLink className="h-[13px] w-[13px]" strokeWidth={2} />
+            Открыть оригинал
+          </a>
+        </div>
+      )}
 
       <div className="pt-5"><div className="h-px w-full bg-[hsl(var(--border))]" /></div>
 
@@ -176,9 +208,7 @@ export default function NewsDetailDrawer({ open, onClose, news }: NewsDetailDraw
         <p className="text-[12px] font-medium text-muted-foreground">Влияние на акции</p>
         <div className="mt-3 flex items-center gap-3">
           {logo && (
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[hsl(var(--border))] bg-card">
-              <img src={logo} alt={news.ticker} className="h-10 w-10 object-cover" />
-            </div>
+            <img src={logo} alt={news.ticker} className="h-8 w-8 shrink-0 rounded-full object-cover" />
           )}
           <span className="text-[16px] font-semibold text-foreground">{news.ticker}</span>
           <span className={`ml-auto inline-flex items-center gap-1 text-[13px] font-semibold ${isPositive ? "text-[hsl(var(--news-positive))]" : "text-[hsl(var(--news-negative))]"}`}>
@@ -253,12 +283,58 @@ export default function NewsDetailDrawer({ open, onClose, news }: NewsDetailDraw
         {isBookmarked ? <BookmarkCheck className="h-[14px] w-[14px]" strokeWidth={1.8} /> : <Bookmark className="h-[14px] w-[14px]" strokeWidth={1.8} />}
         {isBookmarked ? "Сохранено" : "Сохранить"}
       </button>
-      <button className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[hsl(var(--border))] bg-card text-[13px] font-medium text-foreground active:scale-[0.97] transition-transform">
+      <button
+        onClick={() => { if (!tickerUp) return; subscribed ? unsubscribe(tickerUp) : subscribe(tickerUp); }}
+        className={`flex h-10 items-center justify-center gap-2 rounded-xl border text-[13px] font-medium active:scale-[0.97] transition-transform ${
+          subscribed
+            ? "border-primary bg-primary/10 text-primary"
+            : "border-[hsl(var(--border))] bg-card text-foreground"
+        }`}
+      >
         <Bell className="h-[14px] w-[14px]" strokeWidth={1.8} />
-        Подписаться
+        {subscribed ? "Вы подписаны" : "Подписаться"}
       </button>
     </div>
   );
+
+  const renderComment = (comment: UIComment, isReply: boolean) => {
+    const replies = comment.id ? repliesByParent.get(comment.id) || [] : [];
+    return (
+      <div key={comment.key} className={isReply ? "mt-4 pl-4 border-l-2 border-[hsl(var(--border))]" : ""}>
+        <div className="flex gap-3">
+          <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: getAvatarColor(comment.name) }}>
+            <span className="text-[11px] font-bold uppercase leading-none text-white">{comment.name.slice(0, 2)}</span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 text-[12px]">
+              <span className="truncate font-semibold text-foreground">{comment.name}</span>
+              <span className="text-muted-foreground">{comment.date}</span>
+            </div>
+            <p className="mt-2 text-[13px] leading-[1.5] text-foreground">{comment.text}</p>
+            <div className="mt-2.5 flex items-center gap-4 text-muted-foreground">
+              <button className="flex items-center gap-1 active:scale-95 transition-transform">
+                <Heart className="h-[14px] w-[14px]" strokeWidth={1.7} />
+                {comment.likes > 0 && <span className="text-[12px]">{comment.likes}</span>}
+              </button>
+              {user && comment.id && (
+                <button
+                  onClick={() => setReplyTo({ id: comment.id!, name: comment.name })}
+                  className="text-[12px] font-medium text-primary active:scale-95 transition-transform"
+                >
+                  Ответить
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+        {replies.length > 0 && (
+          <div className="mt-2">
+            {replies.map((r) => renderComment(r, true))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const commentsBlock = (
     <div className="pt-4 pb-2">
@@ -267,9 +343,19 @@ export default function NewsDetailDrawer({ open, onClose, news }: NewsDetailDraw
         <p className="text-[15px] font-bold text-foreground">Комментарии ({allComments.length})</p>
       </div>
       {user ? (
-        <div className="mb-5 flex items-center gap-2">
-          <input type="text" placeholder="Написать комментарий..." value={commentText} onChange={(e) => setCommentText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSubmitComment()} className="flex-1 h-10 rounded-[16px] border border-[hsl(var(--border))] bg-card px-4 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40" />
-          <button onClick={handleSubmitComment} disabled={!commentText.trim() || submitting} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-40 active:scale-95 transition-transform"><Send className="h-4 w-4" strokeWidth={2} /></button>
+        <div className="mb-5">
+          {replyTo && (
+            <div className="mb-2 flex items-center justify-between rounded-lg bg-[hsl(var(--news-surface))] px-3 py-2 text-[12px]">
+              <span className="text-muted-foreground">В ответ <span className="font-semibold text-foreground">{replyTo.name}</span></span>
+              <button onClick={() => setReplyTo(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-3.5 w-3.5" strokeWidth={2} />
+              </button>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <input type="text" placeholder={replyTo ? `Ответить ${replyTo.name}...` : "Написать комментарий..."} value={commentText} onChange={(e) => setCommentText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSubmitComment()} className="flex-1 h-10 rounded-[16px] border border-[hsl(var(--border))] bg-card px-4 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40" />
+            <button onClick={handleSubmitComment} disabled={!commentText.trim() || submitting} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-40 active:scale-95 transition-transform"><Send className="h-4 w-4" strokeWidth={2} /></button>
+          </div>
         </div>
       ) : (
         <div className="mb-5 flex h-10 items-center justify-center gap-2 rounded-xl border border-[hsl(var(--border))] bg-card text-[13px] text-muted-foreground">
@@ -277,25 +363,10 @@ export default function NewsDetailDrawer({ open, onClose, news }: NewsDetailDraw
           <span>Войдите, чтобы комментировать</span>
         </div>
       )}
-      <div>
-        {allComments.map((comment, i) => (
-          <div key={comment.key} className={`${i > 0 ? "border-t border-[hsl(var(--border))] pt-4" : ""} ${i < allComments.length - 1 ? "pb-4" : ""}`}>
-            <div className="flex gap-3">
-              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: getAvatarColor(comment.name) }}>
-                <span className="text-[11px] font-bold uppercase leading-none text-white">{comment.name.slice(0, 2)}</span>
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 text-[12px]">
-                  <span className="truncate font-semibold text-foreground">{comment.name}</span>
-                  <span className="text-muted-foreground">{comment.date}</span>
-                </div>
-                <p className="mt-2 text-[13px] leading-[1.5] text-foreground">{comment.text}</p>
-                <div className="mt-2.5 flex items-center gap-1 text-muted-foreground">
-                  <Heart className="h-[14px] w-[14px]" strokeWidth={1.7} />
-                  {comment.likes > 0 && <span className="text-[12px]">{comment.likes}</span>}
-                </div>
-              </div>
-            </div>
+      <div className="space-y-4">
+        {rootComments.map((comment, i) => (
+          <div key={comment.key} className={i > 0 ? "border-t border-[hsl(var(--border))] pt-4" : ""}>
+            {renderComment(comment, false)}
           </div>
         ))}
       </div>
