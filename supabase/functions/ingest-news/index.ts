@@ -23,6 +23,8 @@ interface IncomingNews {
   source_url?: string;
   body_text?: string;
   sector?: string;
+  source_slug?: string;
+  source?: string;
 }
 
 function validateItem(item: any): { ok: true; data: IncomingNews } | { ok: false; error: string } {
@@ -109,6 +111,26 @@ Deno.serve(async (req) => {
 
   const results = { inserted: 0, skipped: 0, errors: [] as Array<{ index: number; error: string }> };
 
+  console.log(`[ingest-news] received ${items.length} item(s)`);
+
+  // Кешируем источники по slug, чтобы не дёргать БД на каждый item
+  const sourceCache = new Map<string, { id: string; slug: string } | null>();
+  const touchedSourceIds = new Set<string>();
+
+  async function resolveSource(slug?: string): Promise<{ id: string; slug: string } | null> {
+    if (!slug) return null;
+    const key = slug.trim().toLowerCase();
+    if (!key) return null;
+    if (sourceCache.has(key)) return sourceCache.get(key)!;
+    const { data } = await supabase
+      .from("news_sources")
+      .select("id, slug")
+      .eq("slug", key)
+      .maybeSingle();
+    sourceCache.set(key, data ?? null);
+    return data ?? null;
+  }
+
   for (let i = 0; i < items.length; i++) {
     const v = validateItem(items[i]);
     if (!v.ok) {
@@ -121,18 +143,45 @@ Deno.serve(async (req) => {
     const company_name = (it.emitter || it.company_name || ticker).trim();
     const categories = Array.isArray(it.categories) ? it.categories.filter((c) => typeof c === "string") : [];
     const category = it.category || categories[0] || "Событие";
+    const rawSlug = (it.source_slug || it.source || "").toString().trim().toLowerCase() || null;
+    const source = await resolveSource(rawSlug || undefined);
+    const source_id = source?.id ?? null;
+    const source_slug = source?.slug ?? rawSlug;
 
-    // Дедупликация по source_url (если задан)
+    // Проверяем, существует ли запись по source_url
+    let existingId: string | null = null;
     if (it.source_url) {
       const { data: existing } = await supabase
         .from("news")
         .select("id")
         .eq("source_url", it.source_url)
         .maybeSingle();
-      if (existing) {
+      if (existing) existingId = existing.id;
+    }
+
+    if (existingId) {
+      // UPDATE: дозаполняем метаданные у уже существующей записи
+      const updatePatch: Record<string, unknown> = {
+        ticker,
+        company_name,
+        categories,
+        category,
+        sector: it.sector ?? "",
+        source_id,
+        source_slug,
+      };
+      if (it.body_text) updatePatch.body_text = it.body_text;
+      if (it.description) updatePatch.description = it.description;
+
+      const { error } = await supabase.from("news").update(updatePatch).eq("id", existingId);
+      if (error) {
+        console.error(`[ingest-news] update failed for "${it.title}":`, error.message);
+        results.errors.push({ index: i, error: error.message });
+      } else {
         results.skipped++;
-        continue;
+        if (source_id) touchedSourceIds.add(source_id);
       }
+      continue;
     }
 
     const row = {
@@ -145,6 +194,8 @@ Deno.serve(async (req) => {
       category,
       sector: it.sector ?? "",
       source_url: it.source_url ?? null,
+      source_id,
+      source_slug,
       published_at,
       date,
       full_date,
@@ -152,11 +203,29 @@ Deno.serve(async (req) => {
 
     const { error } = await supabase.from("news").insert(row);
     if (error) {
+      console.error(`[ingest-news] insert failed for "${row.title}":`, error.message);
       results.errors.push({ index: i, error: error.message });
     } else {
       results.inserted++;
+      if (source_id) touchedSourceIds.add(source_id);
     }
   }
+
+  // Обновляем last_parsed_at / last_status у всех затронутых источников
+  if (touchedSourceIds.size > 0) {
+    const nowIso = new Date().toISOString();
+    const status = `ok: +${results.inserted} / skip ${results.skipped}`;
+    await Promise.all(
+      Array.from(touchedSourceIds).map((id) =>
+        supabase
+          .from("news_sources")
+          .update({ last_parsed_at: nowIso, last_status: status })
+          .eq("id", id),
+      ),
+    );
+  }
+
+  console.log(`[ingest-news] done: inserted=${results.inserted} skipped=${results.skipped} errors=${results.errors.length}`);
 
   return new Response(JSON.stringify(results), {
     status: 200,

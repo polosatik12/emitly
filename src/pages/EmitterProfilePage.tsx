@@ -4,10 +4,13 @@ import { ArrowLeft, Search, SlidersHorizontal, BellOff, Bell } from "lucide-reac
 import { getEmitterByTicker } from "@/data/emitters";
 import { useNews, type NewsItem } from "@/hooks/useNews";
 import { NewsCard } from "@/components/NewsCard";
-import { FiltersModal } from "@/components/FiltersModal";
+import { FiltersModal, DEFAULT_FILTERS, type FilterState } from "@/components/FiltersModal";
+import { applyNewsFilters, activeFiltersCount } from "@/lib/newsFilters";
 import NewsDetailDrawer from "@/components/NewsDetailDrawer";
 import { useEmitterSubscriptions } from "@/hooks/useEmitterSubscriptions";
 import { useMoexPrices, formatPrice } from "@/hooks/useMoexPrices";
+import TradingViewChart from "@/components/TradingViewChart";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const categories = ["Все", "Событие", "Сделка", "Дивиденды", "Отчёты"];
 
@@ -21,8 +24,10 @@ export default function EmitterProfilePage() {
   const [activeCategory, setActiveCategory] = useState("Все");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
+  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const { isSubscribed, subscribe, unsubscribe } = useEmitterSubscriptions();
   const { prices } = useMoexPrices();
+  const isMobile = useIsMobile();
 
   // Live price from MOEX
   const livePrice = ticker ? prices[ticker.toUpperCase()] : undefined;
@@ -32,7 +37,7 @@ export default function EmitterProfilePage() {
   // Filter news by this emitter's ticker
   const emitterNews = useMemo(() => {
     if (!ticker) return [];
-    return allNews.filter((n) => {
+    const base = allNews.filter((n) => {
       const matchesTicker = n.ticker === ticker.toUpperCase();
       const matchesSearch =
         n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -40,7 +45,8 @@ export default function EmitterProfilePage() {
       const matchesCategory = activeCategory === "Все" || n.category === activeCategory;
       return matchesTicker && matchesSearch && matchesCategory;
     });
-  }, [ticker, searchQuery, activeCategory, allNews]);
+    return applyNewsFilters(base, filters);
+  }, [ticker, searchQuery, activeCategory, allNews, filters]);
 
   // Generate mock chart data points
   const chartPoints = useMemo(() => {
@@ -142,15 +148,10 @@ export default function EmitterProfilePage() {
             {isPositive ? "+" : ""}{displayChangePercent.toFixed(2)}%
           </span>
         </div>
-        <div className="bg-card rounded-xl border border-border p-3 overflow-hidden">
-          <svg viewBox={`0 0 ${chartW} ${chartH}`} className="w-full h-[120px]" preserveAspectRatio="none">
-            <path d={pathD} fill="none" stroke={strokeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            <path
-              d={`${pathD} L${chartW},${chartH} L0,${chartH} Z`}
-              fill={isPositive ? "hsl(var(--news-positive) / 0.08)" : "hsl(var(--news-negative) / 0.08)"}
-            />
-          </svg>
-        </div>
+        <TradingViewChart ticker={ticker || ""} height={isMobile ? 360 : 500} />
+        <p className="text-[11px] text-muted-foreground mt-1.5">
+          График предоставлен TradingView.
+        </p>
       </div>
 
       {/* News section */}
@@ -192,6 +193,11 @@ export default function EmitterProfilePage() {
           >
             <SlidersHorizontal className="w-[14px] h-[14px]" strokeWidth={2} />
             Фильтры
+            {activeFiltersCount(filters) > 0 && (
+              <span className="ml-0.5 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-semibold">
+                {activeFiltersCount(filters)}
+              </span>
+            )}
           </button>
         </div>
 
@@ -209,7 +215,12 @@ export default function EmitterProfilePage() {
         </div>
       </div>
 
-      <FiltersModal open={filtersOpen} onClose={() => setFiltersOpen(false)} />
+      <FiltersModal
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        value={filters}
+        onApply={setFilters}
+      />
       <NewsDetailDrawer open={!!selectedNews} onClose={() => setSelectedNews(null)} news={selectedNews} />
     </div>
   );

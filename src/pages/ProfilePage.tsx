@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Settings, Bookmark, ChevronRight, Sun, Bell, HelpCircle, FileText, DollarSign, Check, LogOut, User, Phone, Loader2 } from "lucide-react";
+import { Settings, ChevronRight, HelpCircle, FileText, DollarSign, Check, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseProxy";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
@@ -30,13 +30,14 @@ function getInitials(value: string): string {
 
 const pricingPlans = [
   {
-    name: "Бесплатный",
+    name: "Free",
     monthlyPrice: "0",
     yearlyPrice: "0",
     features: [
-      "1 эмитент в подписке",
-      "Базовая лента новостей",
-      "Доступ к основным источникам",
+      "Полный доступ ко всем функциям Pro",
+      "Все эмитенты и источники",
+      "Уведомления: TG · сайт · email",
+      "После окончания — блокировка до оплаты",
     ],
     isCurrent: true,
     isPopular: false,
@@ -48,9 +49,10 @@ const pricingPlans = [
     monthlyPrice: "199",
     yearlyPrice: "1990",
     features: [
-      "5 эмитентов в подписке",
-      "Мгновенные уведомления",
-      "Расширенный список источников",
+      "До 5 эмитентов",
+      "До 10 источников на выбор",
+      "Уведомления: TG · сайт · email",
+      "Поддержка: общий чат",
     ],
     isCurrent: false,
     isPopular: false,
@@ -62,11 +64,11 @@ const pricingPlans = [
     monthlyPrice: "299",
     yearlyPrice: "2990",
     features: [
-      "20 эмитентов в подписке",
-      "Все функции Base",
-      "Персональная поддержка",
-      "Аналитика и статистика",
-      "Торговые аномалии и крупные сделки",
+      "До 20 эмитентов",
+      "До 20 источников на выбор",
+      "Уведомления: TG · сайт · email",
+      "Аналитика и торговые аномалии",
+      "Сделки инсайдеров",
     ],
     isCurrent: false,
     isPopular: true,
@@ -78,10 +80,10 @@ const pricingPlans = [
     monthlyPrice: "499",
     yearlyPrice: "4990",
     features: [
-      "50 эмитентов в подписке",
-      "Все функции Premium",
-      "Эксклюзивные источники",
-      "Расширенная аналитика",
+      "До 50 эмитентов",
+      "Все источники",
+      "Уведомления: TG · сайт · email",
+      "Аналитика и торговые аномалии",
       "Приоритетная поддержка",
     ],
     isCurrent: false,
@@ -94,8 +96,6 @@ const pricingPlans = [
 export default function ProfilePage() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains("dark"));
-  const [telegramNotifs, setTelegramNotifs] = useState(true);
   const [profileCard, setProfileCard] = useState<ProfileCardData>(defaultProfileCard);
   const [showRequisites, setShowRequisites] = useState(false);
   const [billingPeriod, setBillingPeriod] = useState<"month" | "year">("month");
@@ -187,14 +187,8 @@ export default function ProfilePage() {
     }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    toast.success("Вы вышли из аккаунта");
-    navigate("/");
-  };
-
   const containerClass = isMobile
-    ? "flex flex-col min-h-screen max-w-lg mx-auto pb-[60px] bg-background"
+    ? "flex flex-col min-h-screen max-w-lg md:max-w-3xl mx-auto pb-[60px] bg-background"
     : "flex flex-col min-h-screen max-w-[640px] mx-auto py-6 px-6 bg-background";
 
   return (
@@ -246,61 +240,7 @@ export default function ProfilePage() {
         {/* Активная подписка с таймером */}
         <SubscriptionCard />
 
-        {/* Saved news */}
-        <div className="rounded-2xl border border-border bg-card p-4 active:scale-[0.98] transition-transform cursor-pointer" onClick={() => navigate("/saved-news")}>
-          <div className="flex items-center gap-3.5">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent">
-              <Bookmark className="h-[18px] w-[18px] text-primary" strokeWidth={1.8} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[15px] font-semibold text-foreground">Сохранённые новости</p>
-              <p className="text-[13px] text-muted-foreground mt-0.5">Статьи для чтения позже</p>
-            </div>
-            <ChevronRight className="h-[18px] w-[18px] text-muted-foreground shrink-0" strokeWidth={1.8} />
-          </div>
-        </div>
-
-        {/* Theme toggle */}
-        <div className="rounded-2xl border border-border bg-card p-4">
-          <div className="flex items-center gap-3.5">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent">
-              <Sun className="h-[18px] w-[18px] text-primary" strokeWidth={1.8} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[15px] font-semibold text-foreground">Тема</p>
-              <p className="text-[13px] text-muted-foreground mt-0.5">{darkMode ? "Тёмная" : "Светлая"}</p>
-            </div>
-            <button
-              onClick={() => {
-                const next = !darkMode;
-                setDarkMode(next);
-                document.documentElement.classList.toggle("dark", next);
-              }}
-              className={`relative h-[30px] w-[52px] shrink-0 rounded-full transition-colors ${darkMode ? "bg-primary" : "bg-muted"}`}
-            >
-              <div className={`absolute top-[3px] h-[24px] w-[24px] rounded-full bg-white shadow-sm transition-transform ${darkMode ? "translate-x-[25px]" : "translate-x-[3px]"}`} />
-            </button>
-          </div>
-        </div>
-
-        {/* Telegram notifications */}
-        <div className="rounded-2xl border border-border bg-card p-4">
-          <div className="flex items-center gap-3.5">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent">
-              <Bell className="h-[18px] w-[18px] text-primary" strokeWidth={1.8} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[15px] font-semibold text-foreground">Telegram уведомления</p>
-              <p className="text-[13px] text-primary mt-0.5">{telegramNotifs ? "Включены" : "Выключены"}</p>
-            </div>
-            <button
-              onClick={() => setTelegramNotifs(!telegramNotifs)}
-              className={`relative h-[30px] w-[52px] shrink-0 rounded-full transition-colors ${telegramNotifs ? "bg-primary" : "bg-muted"}`}
-            >
-              <div className={`absolute top-[3px] h-[24px] w-[24px] rounded-full bg-white shadow-sm transition-transform ${telegramNotifs ? "translate-x-[25px]" : "translate-x-[3px]"}`} />
-            </button>
-          </div>
-        </div>
+        {/* Saved news / Theme / Telegram notifications переехали в Настройки */}
 
         {/* Quick links row on desktop */}
         {!isMobile && (
@@ -350,16 +290,7 @@ export default function ProfilePage() {
           </>
         )}
 
-        {/* Logout */}
-        <button
-          onClick={handleLogout}
-          className="w-full rounded-2xl border border-destructive/30 bg-card px-4 py-3.5 hover:bg-destructive/10 transition-colors"
-        >
-          <div className="flex items-center justify-center gap-2">
-            <LogOut className="h-[17px] w-[17px] text-destructive" strokeWidth={1.8} />
-            <span className="text-[14px] font-medium text-destructive">Выйти из аккаунта</span>
-          </div>
-        </button>
+        {/* Logout — теперь только в Настройках на всех устройствах */}
 
         {/* Pricing section */}
         <div className="pt-3">
@@ -393,7 +324,7 @@ export default function ProfilePage() {
           {pricingPlans.map((plan) => {
             const isYearly = billingPeriod === "year" && !plan.isTrial;
             const displayPrice = plan.isTrial ? "0" : (isYearly ? plan.yearlyPrice : plan.monthlyPrice);
-            const period = plan.isTrial ? "/ 48 часов" : (isYearly ? "/ год" : "/ месяц");
+            const period = plan.isTrial ? "/ 7 дней" : (isYearly ? "/ год" : "/ месяц");
             const monthlyTotal = Number(plan.monthlyPrice) * 12;
             const yearlySaving = monthlyTotal - Number(plan.yearlyPrice);
             

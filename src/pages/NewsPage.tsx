@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, SlidersHorizontal, Menu } from "lucide-react";
 import { NewsCard } from "@/components/NewsCard";
-import { FiltersModal } from "@/components/FiltersModal";
+import { FiltersModal, DEFAULT_FILTERS, type FilterState } from "@/components/FiltersModal";
+import { applyNewsFilters, activeFiltersCount } from "@/lib/newsFilters";
 import { CompanyFilterModal } from "@/components/CompanyFilterModal";
 import NewsDetailDrawer from "@/components/NewsDetailDrawer";
 import { supabase } from "@/lib/supabaseProxy";
@@ -12,6 +13,7 @@ import { SubscribedEmittersStrip } from "@/components/SubscribedEmittersStrip";
 import { usePlan } from "@/hooks/usePlan";
 import { useReadHotNews } from "@/hooks/useReadHotNews";
 import { getEmitterByTicker } from "@/data/emitters";
+import { TriggerChips } from "@/components/TriggerChips";
 
 export default function NewsPage() {
   const { news: allNews, loading: newsLoading } = useNews();
@@ -24,6 +26,9 @@ export default function NewsPage() {
   const [companyFilterOpen, setCompanyFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
+  const [scope, setScope] = useState<"all" | "mine">("all");
+  const [activeTrigger, setActiveTrigger] = useState<string | null>(null);
+  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [initials, setInitials] = useState("U");
 
@@ -61,7 +66,7 @@ export default function NewsPage() {
   }, []);
 
   return (
-    <div className="flex flex-col min-h-screen max-w-lg mx-auto pb-[60px] bg-background">
+    <div className="flex flex-col min-h-screen max-w-lg md:max-w-3xl mx-auto pb-[60px] bg-background">
       {/* Header — Emitly с встроенным strip кружков */}
       <div className="flex items-center gap-2 px-4 pt-3 pb-1.5">
         <button onClick={() => navigate("/profile")} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted border-2 border-border overflow-hidden active:scale-95 transition-transform">
@@ -134,20 +139,58 @@ export default function NewsPage() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="px-4 mb-2.5">
+      {/* Scope chips + Filters */}
+      <div className="px-4 mb-2.5 flex items-center gap-2">
+        <button
+          onClick={() => setScope("all")}
+          className={`px-3.5 py-[7px] text-[13px] font-medium rounded-full border transition-all duration-200 active:scale-[0.93] ${
+            scope === "all"
+              ? "bg-foreground text-background border-foreground"
+              : "bg-card text-muted-foreground border-border"
+          }`}
+        >
+          Все
+        </button>
+        <button
+          onClick={() => setScope("mine")}
+          className={`px-3.5 py-[7px] text-[13px] font-medium rounded-full border transition-all duration-200 active:scale-[0.93] ${
+            scope === "mine"
+              ? "bg-foreground text-background border-foreground"
+              : "bg-card text-muted-foreground border-border"
+          }`}
+        >
+          Мои
+        </button>
         <button
           onClick={() => setFiltersOpen(true)}
-          className="flex items-center gap-1.5 px-3.5 py-[7px] text-[13px] font-medium text-foreground border border-border rounded-full bg-card active:scale-[0.93] transition-all duration-200"
+          className="ml-auto flex items-center gap-1.5 px-3.5 py-[7px] text-[13px] font-medium text-foreground border border-border rounded-full bg-card active:scale-[0.93] transition-all duration-200"
         >
           <SlidersHorizontal className="w-[14px] h-[14px]" strokeWidth={2} />
           Фильтры
+          {activeFiltersCount(filters) > 0 && (
+            <span className="ml-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold">
+              {activeFiltersCount(filters)}
+            </span>
+          )}
         </button>
+      </div>
+
+      {/* Trigger chips: Все / Peace Deal / Ставка ЦБ / Макро / Отчётность */}
+      <div className="px-4 mb-2.5">
+        <TriggerChips active={activeTrigger} onChange={setActiveTrigger} variant="mobile" />
       </div>
 
       {/* Cards */}
       <div className="px-4 space-y-2.5 flex-1 pb-4">
-        {allNews
+        {scope === "mine" && subscriptions.length === 0 && (
+          <div className="text-center text-muted-foreground text-[13px] py-8">
+            Вы ещё не подписаны ни на одного эмитента.<br />
+            Откройте профиль компании и нажмите «Подписаться».
+          </div>
+        )}
+        {applyNewsFilters(allNews, filters)
+          .filter((n) => scope === "all" || subscriptions.includes(n.ticker))
+          .filter((n) => !activeTrigger || (n.triggerCategories || []).includes(activeTrigger))
           .filter((n) =>
             n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
             n.ticker.toLowerCase().includes(searchQuery.toLowerCase())
@@ -169,7 +212,12 @@ export default function NewsPage() {
           })}
       </div>
 
-      <FiltersModal open={filtersOpen} onClose={() => setFiltersOpen(false)} />
+      <FiltersModal
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        value={filters}
+        onApply={setFilters}
+      />
       <CompanyFilterModal open={companyFilterOpen} onClose={() => setCompanyFilterOpen(false)} />
       <NewsDetailDrawer open={!!selectedNews} onClose={() => setSelectedNews(null)} news={selectedNews} />
     </div>

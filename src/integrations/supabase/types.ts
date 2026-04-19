@@ -72,9 +72,12 @@ export type Database = {
           price_change_percent: number
           published_at: string | null
           sector: string
+          source_id: string | null
+          source_slug: string | null
           source_url: string | null
           ticker: string
           title: string
+          trigger_categories: string[]
         }
         Insert: {
           body_text?: string
@@ -91,9 +94,12 @@ export type Database = {
           price_change_percent?: number
           published_at?: string | null
           sector?: string
+          source_id?: string | null
+          source_slug?: string | null
           source_url?: string | null
           ticker: string
           title: string
+          trigger_categories?: string[]
         }
         Update: {
           body_text?: string
@@ -110,11 +116,22 @@ export type Database = {
           price_change_percent?: number
           published_at?: string | null
           sector?: string
+          source_id?: string | null
+          source_slug?: string | null
           source_url?: string | null
           ticker?: string
           title?: string
+          trigger_categories?: string[]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "news_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "news_sources"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       news_bookmarks: {
         Row: {
@@ -175,6 +192,137 @@ export type Database = {
           },
         ]
       }
+      news_sources: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon_url: string | null
+          id: string
+          is_active: boolean
+          last_parsed_at: string | null
+          last_status: string | null
+          name: string
+          parse_interval_min: number
+          slug: string
+          source_type: string
+          tier: string
+          triggers: Json
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon_url?: string | null
+          id?: string
+          is_active?: boolean
+          last_parsed_at?: string | null
+          last_status?: string | null
+          name: string
+          parse_interval_min?: number
+          slug: string
+          source_type?: string
+          tier?: string
+          triggers?: Json
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon_url?: string | null
+          id?: string
+          is_active?: boolean
+          last_parsed_at?: string | null
+          last_status?: string | null
+          name?: string
+          parse_interval_min?: number
+          slug?: string
+          source_type?: string
+          tier?: string
+          triggers?: Json
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
+      news_trigger_categories: {
+        Row: {
+          code: string
+          color: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      news_trigger_keywords: {
+        Row: {
+          category_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          keyword: string
+          subgroup: string
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          keyword: string
+          subgroup?: string
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          keyword?: string
+          subgroup?: string
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "news_trigger_keywords_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "news_trigger_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       news_votes: {
         Row: {
           created_at: string
@@ -196,6 +344,27 @@ export type Database = {
           news_id?: string
           user_id?: string
           vote?: string
+        }
+        Relationships: []
+      }
+      notifications_read: {
+        Row: {
+          id: string
+          news_id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          news_id: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          news_id?: string
+          read_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -237,9 +406,11 @@ export type Database = {
           notify_web: boolean
           phone: string | null
           telegram_chat_id: string | null
+          trial_paywall_shown: boolean
           trial_started_at: string | null
           updated_at: string
           user_id: string
+          welcome_shown: boolean
         }
         Insert: {
           avatar_url?: string | null
@@ -251,9 +422,11 @@ export type Database = {
           notify_web?: boolean
           phone?: string | null
           telegram_chat_id?: string | null
+          trial_paywall_shown?: boolean
           trial_started_at?: string | null
           updated_at?: string
           user_id: string
+          welcome_shown?: boolean
         }
         Update: {
           avatar_url?: string | null
@@ -265,11 +438,66 @@ export type Database = {
           notify_web?: boolean
           phone?: string | null
           telegram_chat_id?: string | null
+          trial_paywall_shown?: boolean
           trial_started_at?: string | null
           updated_at?: string
           user_id?: string
+          welcome_shown?: boolean
         }
         Relationships: []
+      }
+      raw_news: {
+        Row: {
+          body_text: string
+          created_at: string
+          id: string
+          is_processed: boolean
+          matched_keywords: string[]
+          news_id: string | null
+          published_at: string | null
+          source_name: string | null
+          source_slug: string | null
+          source_url: string | null
+          title: string
+          trigger_categories: string[]
+        }
+        Insert: {
+          body_text?: string
+          created_at?: string
+          id?: string
+          is_processed?: boolean
+          matched_keywords?: string[]
+          news_id?: string | null
+          published_at?: string | null
+          source_name?: string | null
+          source_slug?: string | null
+          source_url?: string | null
+          title: string
+          trigger_categories?: string[]
+        }
+        Update: {
+          body_text?: string
+          created_at?: string
+          id?: string
+          is_processed?: boolean
+          matched_keywords?: string[]
+          news_id?: string | null
+          published_at?: string | null
+          source_name?: string | null
+          source_slug?: string | null
+          source_url?: string | null
+          title?: string
+          trigger_categories?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "raw_news_news_id_fkey"
+            columns: ["news_id"]
+            isOneToOne: false
+            referencedRelation: "news"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subscriptions: {
         Row: {
@@ -309,6 +537,48 @@ export type Database = {
           starts_at?: string | null
           status?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_read_hot_news: {
+        Row: {
+          id: string
+          news_id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          news_id: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          news_id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
         Relationships: []
@@ -353,10 +623,18 @@ export type Database = {
           trial_started_at: string
         }[]
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_admin: { Args: { _user_id?: string }; Returns: boolean }
       start_trial_if_needed: { Args: never; Returns: string }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -483,6 +761,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const

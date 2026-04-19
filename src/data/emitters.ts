@@ -74,6 +74,7 @@ export const emitters: EmitterData[] = [
   { name: "ВК", ticker: "VKCO", sector: "IT", price: "293.25 ₽", changePercent: -0.71, logo: logoVkco, analytics: { pe: "—", pb: "2.10", evEbitda: "12.4", ndEbitda: "1.8" } },
   { name: "ВТБ", ticker: "VTBR", sector: "Финансы", price: "86.36 ₽", changePercent: 0.30, logo: logoVtbr, analytics: { pe: "2.1", pb: "0.35", evEbitda: "—", ndEbitda: "—" } },
   { name: "Газпром", ticker: "GAZP", sector: "Нефть и газ", price: "130.92 ₽", changePercent: 0.16, logo: logoGazp, analytics: { pe: "3.5", pb: "0.28", evEbitda: "2.9", ndEbitda: "1.1" } },
+  { name: "Индекс Мосбиржи", ticker: "IRUS", sector: "Индексы", price: "2650.00 п.", changePercent: 0.45, logo: logoMoex, analytics: { pe: "—", pb: "—", evEbitda: "—", ndEbitda: "—" } },
   { name: "Интер РАО", ticker: "IRAO", sector: "Энергетика", price: "3.18 ₽", changePercent: 0.52, logo: logoIrao, analytics: { pe: "4.1", pb: "0.45", evEbitda: "2.5", ndEbitda: "-0.8" } },
   { name: "ЛСР", ticker: "LSRG", sector: "Холдинги", price: "714.80 ₽", changePercent: 0.25, logo: logoLsrg, analytics: { pe: "5.2", pb: "0.68", evEbitda: "4.1", ndEbitda: "1.2" } },
   { name: "Лукойл", ticker: "LKOH", sector: "Нефть и газ", price: "5828.00 ₽", changePercent: 0.59, logo: logoLkoh, analytics: { pe: "4.8", pb: "0.95", evEbitda: "2.7", ndEbitda: "-0.3" } },

@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { ChevronLeft, ChevronRight, Maximize2, Heart, Coins, FileText, Users, CalendarDays, ExternalLink } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Heart, Coins, FileText, Users, CalendarDays, ExternalLink } from "lucide-react";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import EventDetailDrawer from "@/components/EventDetailDrawer";
-import { addDays, startOfWeek, format, isSameDay, isToday as isTodayFn } from "date-fns";
+import { addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addMonths, format, isSameDay, isSameMonth, isToday as isTodayFn } from "date-fns";
 import { ru } from "date-fns/locale";
 
 const weekDayLabels = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -112,11 +112,22 @@ function getWeekStart(date: Date): Date {
   return startOfWeek(date, { weekStartsOn: 1 });
 }
 
-function formatWeekRange(weekStart: Date): string {
-  const weekEnd = addDays(weekStart, 13);
-  const start = format(weekStart, "d MMM.", { locale: ru });
-  const end = format(weekEnd, "d MMM.", { locale: ru });
-  return `${start} - ${end}`;
+function formatMonthLabel(date: Date): string {
+  return format(date, "LLLL yyyy", { locale: ru }).replace(/^./, c => c.toUpperCase());
+}
+
+function buildMonthGrid(monthDate: Date): Date[][] {
+  const start = startOfWeek(startOfMonth(monthDate), { weekStartsOn: 1 });
+  const end = endOfWeek(endOfMonth(monthDate), { weekStartsOn: 1 });
+  const days: Date[] = [];
+  let cur = start;
+  while (cur <= end) {
+    days.push(cur);
+    cur = addDays(cur, 1);
+  }
+  const weeks: Date[][] = [];
+  for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
+  return weeks;
 }
 
 function getFullDateLabel(date: Date): string {
@@ -137,14 +148,12 @@ export default function CalendarPage() {
       return stored ? new Set(JSON.parse(stored)) : new Set();
     } catch { return new Set(); }
   });
-  const [weekOffset, setWeekOffset] = useState(0);
+  const [monthOffset, setMonthOffset] = useState(0);
+  const [calendarExpanded, setCalendarExpanded] = useState(false);
 
   const today = new Date();
-  const baseWeekStart = getWeekStart(today);
-  const currentWeekStart = addDays(baseWeekStart, weekOffset * 14);
-
-  const week1 = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
-  const week2 = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, 7 + i));
+  const currentMonth = addMonths(startOfMonth(today), monthOffset);
+  const weeks = useMemo(() => buildMonthGrid(currentMonth), [currentMonth.getTime()]);
 
   const toggleFavorite = (id: string) => {
     setFavorites(prev => {
@@ -207,7 +216,7 @@ export default function CalendarPage() {
   };
 
   return (
-    <div className={isMobile ? "flex flex-col min-h-screen max-w-lg mx-auto pb-[60px] bg-background" : "flex flex-col min-h-screen max-w-[720px] mx-auto py-6 px-6 bg-background"}>
+    <div className={isMobile ? "flex flex-col min-h-screen max-w-lg md:max-w-3xl mx-auto pb-[60px] bg-background" : "flex flex-col min-h-screen max-w-[720px] mx-auto py-6 px-6 bg-background"}>
       {/* Шапка */}
       {isMobile ? (
         <div className="flex items-center justify-between px-4 pt-3 pb-2">
@@ -263,77 +272,104 @@ export default function CalendarPage() {
       {/* Календарь */}
       <div className={isMobile ? "mx-4 border border-border rounded-[16px] p-3.5 mb-3" : "border border-border rounded-[16px] p-4 mb-4"}>
         <div className="flex items-center justify-between mb-2.5">
-          <button onClick={() => setWeekOffset(w => w - 1)} className="text-muted-foreground p-0.5 active:scale-90 transition-transform">
+          <button onClick={() => setMonthOffset(m => m - 1)} className="text-muted-foreground p-0.5 active:scale-90 transition-transform" aria-label="Предыдущий месяц">
             <ChevronLeft className="w-[15px] h-[15px]" />
           </button>
-          <span className="text-[12.5px] font-semibold text-foreground">{formatWeekRange(currentWeekStart)}</span>
-          <div className="flex items-center gap-0.5">
-            <button onClick={() => setWeekOffset(w => w + 1)} className="text-muted-foreground p-0.5 active:scale-90 transition-transform">
+          <div className="flex items-center gap-2">
+            <span className="text-[12.5px] font-semibold text-foreground">{formatMonthLabel(currentMonth)}</span>
+            {monthOffset !== 0 && (
+              <button
+                onClick={() => setMonthOffset(0)}
+                className="text-[10.5px] text-primary font-medium px-2 py-0.5 rounded-full bg-primary/10 active:scale-95 transition-transform"
+              >
+                Сегодня
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCalendarExpanded(v => !v)}
+              className="text-muted-foreground p-1 active:scale-90 transition-transform hover:text-foreground"
+              aria-label={calendarExpanded ? "Свернуть календарь" : "Развернуть календарь"}
+              title={calendarExpanded ? "Свернуть" : "Развернуть"}
+            >
+              {calendarExpanded ? <Minimize2 className="w-[14px] h-[14px]" /> : <Maximize2 className="w-[14px] h-[14px]" />}
+            </button>
+            <button onClick={() => setMonthOffset(m => m + 1)} className="text-muted-foreground p-0.5 active:scale-90 transition-transform" aria-label="Следующий месяц">
               <ChevronRight className="w-[15px] h-[15px]" />
             </button>
-            <button onClick={() => setWeekOffset(0)} className="text-muted-foreground p-0.5 active:scale-90 transition-transform">
-              <Maximize2 className="w-[13px] h-[13px]" />
-            </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-0 mb-0.5">
-          {weekDayLabels.map((d) => (
-            <div key={d} className="text-center text-[10px] text-muted-foreground font-medium py-0.5">{d}</div>
-          ))}
-        </div>
+        {(() => {
+          const currentWeek = weeks.find((w) => w.some((d) => isSameDay(d, today)));
+          const weeksToRender = calendarExpanded ? weeks : (currentWeek ? [currentWeek] : [weeks[0]]);
 
-        {[week1, week2].map((week, wi) => (
-          <div key={wi} className={`grid grid-cols-7 gap-0 ${wi === 0 ? "mb-0.5" : "mb-2.5"}`}>
-            {week.map((d, di) => {
-              const isToday = isTodayFn(d);
-              const isSelected = selectedDate && isSameDay(selectedDate, d);
-              const hasEvents = calendarEvents.some(ev => isSameDay(ev.date, d));
+          return (
+            <>
+              <div className="grid grid-cols-7 gap-0 mb-0.5">
+                {weekDayLabels.map((d) => (
+                  <div key={d} className="text-center text-[10px] text-muted-foreground font-medium py-0.5">{d}</div>
+                ))}
+              </div>
 
-              return (
+              {weeksToRender.map((week, wi) => (
+                <div key={wi} className={`grid grid-cols-7 gap-0 ${wi === weeksToRender.length - 1 ? "mb-2.5" : "mb-0.5"}`}>
+                  {week.map((d, di) => {
+                    const isToday = isTodayFn(d);
+                    const isSelected = selectedDate && isSameDay(selectedDate, d);
+                    const hasEvents = calendarEvents.some(ev => isSameDay(ev.date, d));
+                    const inMonth = isSameMonth(d, currentMonth);
+
+                    return (
+                      <button
+                        key={di}
+                        onClick={() => handleDateClick(d)}
+                        className={`text-center py-[6px] text-[13.5px] rounded-full transition-colors mx-auto w-[34px] relative ${
+                          isSelected
+                            ? "bg-chip-selected-bg text-white font-bold"
+                            : isToday
+                            ? "bg-accent text-accent-foreground font-bold"
+                            : inMonth
+                            ? "text-foreground hover:bg-muted font-medium"
+                            : "text-muted-foreground/40 hover:bg-muted font-medium"
+                        }`}
+                      >
+                        {d.getDate()}
+                        {hasEvents && !isSelected && (
+                          <span className={`absolute bottom-[2px] left-1/2 -translate-x-1/2 w-[4px] h-[4px] rounded-full ${inMonth ? "bg-primary" : "bg-primary/40"}`} />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+
+              <div className="flex gap-2">
                 <button
-                  key={di}
-                  onClick={() => handleDateClick(d)}
-                  className={`text-center py-[6px] text-[13.5px] rounded-full transition-colors mx-auto w-[34px] relative ${
-                    isSelected
-                      ? "bg-chip-selected-bg text-white font-bold"
-                      : isToday
-                      ? "bg-accent text-accent-foreground font-bold"
-                      : "text-foreground hover:bg-muted font-medium"
+                  onClick={() => handleDateFilter("all")}
+                  className={`flex-1 text-[12.5px] font-semibold py-[9px] rounded-full transition-colors ${
+                    dateFilter === "all" && !selectedDate
+                      ? "bg-chip-selected-bg text-white"
+                      : "border border-border text-muted-foreground hover:bg-muted"
                   }`}
                 >
-                  {d.getDate()}
-                  {hasEvents && !isSelected && (
-                    <span className="absolute bottom-[2px] left-1/2 -translate-x-1/2 w-[4px] h-[4px] rounded-full bg-primary" />
-                  )}
+                  Все даты
                 </button>
-              );
-            })}
-          </div>
-        ))}
-
-        <div className="flex gap-2">
-          <button
-            onClick={() => handleDateFilter("all")}
-            className={`flex-1 text-[12.5px] font-semibold py-[9px] rounded-full transition-colors ${
-              dateFilter === "all" && !selectedDate
-                ? "bg-chip-selected-bg text-white"
-                : "border border-border text-muted-foreground hover:bg-muted"
-            }`}
-          >
-            Все даты
-          </button>
-          <button
-            onClick={() => handleDateFilter("today")}
-            className={`flex-1 text-[12.5px] font-semibold py-[9px] rounded-full transition-colors ${
-              dateFilter === "today"
-                ? "bg-chip-selected-bg text-white"
-                : "border border-border text-muted-foreground hover:bg-muted"
-            }`}
-          >
-            Сегодня
-          </button>
-        </div>
+                <button
+                  onClick={() => handleDateFilter("today")}
+                  className={`flex-1 text-[12.5px] font-semibold py-[9px] rounded-full transition-colors ${
+                    dateFilter === "today"
+                      ? "bg-chip-selected-bg text-white"
+                      : "border border-border text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  Сегодня
+                </button>
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       {/* Фильтры категорий */}

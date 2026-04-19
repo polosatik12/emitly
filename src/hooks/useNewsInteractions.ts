@@ -237,6 +237,16 @@ export function useNewsVotes(newsId: string | null) {
       setUserVote(prevVote);
       setVotes(prevVotes);
       hasVoteInDb.current = prevHasInDb;
+    } else {
+      // Sync feed cards with new aggregate
+      const newVotes = { ...prevVotes };
+      if (prevVote) newVotes[prevVote]--;
+      newVotes[direction]++;
+      window.dispatchEvent(
+        new CustomEvent("news-vote-changed", {
+          detail: { newsId, long: newVotes.long, short: newVotes.short },
+        }),
+      );
     }
 
     votingRef.current = false;

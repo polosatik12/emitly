@@ -1,35 +1,17 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabaseProxy";
 
-const KEY_PREFIX = "hot_news_read_v2:";
-const GUEST_KEY = `${KEY_PREFIX}guest`;
+/**
+ * Хранилище ID прочитанных «горячих» новостей в БД (таблица user_read_hot_news).
+ * - Гости: остаётся локальный fallback в памяти (без localStorage),
+ *   чтобы не «наследовать» состояние при логине.
+ * - Авторизованные: данные синхронизируются между устройствами через Supabase Realtime.
+ */
 
-// Текущий ключ зависит от user_id. До инициализации сессии используем guest.
-let currentKey = GUEST_KEY;
-
-function readSet(key: string): Set<string> {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return new Set();
-    const arr = JSON.parse(raw) as string[];
-    return new Set(Array.isArray(arr) ? arr : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function writeSet(key: string, set: Set<string>) {
-  try {
-    localStorage.setItem(key, JSON.stringify([...set]));
-  } catch {
-    /* ignore */
-  }
-}
-
-// Глобальный store: одно состояние на всё приложение,
-// чтобы изменения мгновенно видели все компоненты-подписчики.
-let currentSet: Set<string> = readSet(currentKey);
+let currentUserId: string | null = null;
+let currentSet: Set<string> = new Set();
 const listeners = new Set<() => void>();
+let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 
 function emit() {
   listeners.forEach((l) => l());
@@ -46,48 +28,93 @@ function getSnapshot() {
   return currentSet;
 }
 
-function setUserKey(userId: string | null) {
-  const newKey = userId ? `${KEY_PREFIX}${userId}` : GUEST_KEY;
-  if (newKey === currentKey) return;
-  currentKey = newKey;
-  currentSet = readSet(currentKey);
+async function loadFromDb(userId: string) {
+  const { data } = await supabase
+    .from("user_read_hot_news")
+    .select("news_id")
+    .eq("user_id", userId);
+  currentSet = new Set((data ?? []).map((r: any) => r.news_id));
   emit();
 }
 
-// Синхронизация между вкладками
-if (typeof window !== "undefined") {
-  window.addEventListener("storage", (e) => {
-    if (e.key === currentKey) {
-      currentSet = readSet(currentKey);
-      emit();
-    }
-  });
+function setupRealtime(userId: string) {
+  if (realtimeChannel) {
+    supabase.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+  realtimeChannel = supabase
+    .channel(`user_read_hot_news:${userId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "user_read_hot_news",
+        filter: `user_id=eq.${userId}`,
+      },
+      (payload: any) => {
+        if (payload.eventType === "INSERT") {
+          const id = payload.new?.news_id;
+          if (id && !currentSet.has(id)) {
+            const next = new Set(currentSet);
+            next.add(id);
+            currentSet = next;
+            emit();
+          }
+        } else if (payload.eventType === "DELETE") {
+          const id = payload.old?.news_id;
+          if (id && currentSet.has(id)) {
+            const next = new Set(currentSet);
+            next.delete(id);
+            currentSet = next;
+            emit();
+          }
+        }
+      }
+    )
+    .subscribe();
+}
 
-  // Подписка на изменения сессии Supabase: переключаем хранилище под user_id
+async function setUser(userId: string | null) {
+  if (userId === currentUserId) return;
+  currentUserId = userId;
+  // Сбрасываем состояние при смене пользователя
+  currentSet = new Set();
+  emit();
+  if (userId) {
+    await loadFromDb(userId);
+    setupRealtime(userId);
+  } else if (realtimeChannel) {
+    supabase.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+}
+
+if (typeof window !== "undefined") {
   supabase.auth.getSession().then(({ data: { session } }) => {
-    setUserKey(session?.user?.id ?? null);
+    setUser(session?.user?.id ?? null);
   });
   supabase.auth.onAuthStateChange((_event, session) => {
-    setUserKey(session?.user?.id ?? null);
+    setUser(session?.user?.id ?? null);
   });
 }
 
-/**
- * Локальное хранилище ID прочитанных «горячих» новостей,
- * изолированное по user_id (для гостей — отдельный список).
- * Это исключает «наследование» прочитанных новостей при регистрации
- * нового аккаунта в том же браузере.
- */
 export function useReadHotNews() {
   const set = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
-  const markRead = useCallback((newsId: string) => {
+  const markRead = useCallback(async (newsId: string) => {
     if (currentSet.has(newsId)) return;
+    // Optimistic update
     const next = new Set(currentSet);
     next.add(newsId);
     currentSet = next;
-    writeSet(currentKey, next);
     emit();
+
+    if (currentUserId) {
+      await supabase
+        .from("user_read_hot_news")
+        .insert({ user_id: currentUserId, news_id: newsId });
+    }
   }, []);
 
   const isRead = useCallback((newsId: string) => set.has(newsId), [set]);

@@ -39,7 +39,7 @@ export default function SavedNewsPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen max-w-lg mx-auto bg-background">
+    <div className="flex flex-col min-h-screen max-w-lg md:max-w-3xl mx-auto bg-background">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-3 pb-2">
         <Link to="/profile" className="p-2 -m-1 active:scale-95 transition-transform z-10">

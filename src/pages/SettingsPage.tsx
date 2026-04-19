@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, User, Phone, Loader2, Bell, Mail, Send, Globe, ChevronRight } from "lucide-react";
+import { ArrowLeft, User, Phone, Loader2, Bell, Mail, Send, Globe, ChevronRight, Sun, Bookmark, LogOut } from "lucide-react";
 import { supabase } from "@/lib/supabaseProxy";
 import { toast } from "sonner";
 
@@ -11,9 +11,22 @@ export default function SettingsPage() {
   const [notifyTg, setNotifyTg] = useState(true);
   const [notifyWeb, setNotifyWeb] = useState(true);
   const [notifyEmail, setNotifyEmail] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains("dark"));
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.success("Вы вышли из аккаунта");
+    navigate("/");
+  };
+
+  const toggleTheme = () => {
+    const next = !darkMode;
+    setDarkMode(next);
+    document.documentElement.classList.toggle("dark", next);
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -66,7 +79,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen max-w-lg mx-auto pb-[60px] bg-background">
+    <div className="flex flex-col min-h-screen max-w-lg md:max-w-3xl mx-auto pb-[60px] bg-background">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-3 pb-2">
         <button onClick={() => navigate("/profile")} className="p-1 active:scale-95 transition-transform">
@@ -158,6 +171,43 @@ export default function SettingsPage() {
           <ChevronRight className="h-5 w-5 text-muted-foreground" />
         </button>
 
+        {/* Сохранённые новости */}
+        <button
+          onClick={() => navigate("/saved-news")}
+          className="w-full flex items-center justify-between rounded-2xl border border-border bg-card p-5 active:scale-[0.99] hover:border-foreground/20 transition-all"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10">
+              <Bookmark className="h-5 w-5 text-primary" />
+            </div>
+            <div className="text-left">
+              <p className="text-[14px] font-semibold text-foreground">Сохранённые новости</p>
+              <p className="text-[12.5px] text-muted-foreground">Статьи для чтения позже</p>
+            </div>
+          </div>
+          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+        </button>
+
+        {/* Тема */}
+        <div className="rounded-2xl border border-border bg-card p-5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 shrink-0">
+              <Sun className="h-5 w-5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[14px] font-semibold text-foreground">Тема</p>
+              <p className="text-[12.5px] text-muted-foreground">{darkMode ? "Тёмная" : "Светлая"}</p>
+            </div>
+          </div>
+          <button
+            onClick={toggleTheme}
+            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${darkMode ? "bg-primary" : "bg-muted"}`}
+            aria-label="Переключить тему"
+          >
+            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${darkMode ? "translate-x-[22px]" : "translate-x-0.5"}`} />
+          </button>
+        </div>
+
         <button
           onClick={handleSave}
           disabled={saving || loading}
@@ -165,6 +215,15 @@ export default function SettingsPage() {
         >
           {saving && <Loader2 className="h-4 w-4 animate-spin" />}
           {saving ? "Сохранение..." : "Сохранить"}
+        </button>
+
+        {/* Выйти из аккаунта */}
+        <button
+          onClick={handleLogout}
+          className="w-full rounded-2xl border border-destructive/30 bg-card px-4 py-3.5 hover:bg-destructive/10 transition-colors flex items-center justify-center gap-2"
+        >
+          <LogOut className="h-[17px] w-[17px] text-destructive" strokeWidth={1.8} />
+          <span className="text-[14px] font-medium text-destructive">Выйти из аккаунта</span>
         </button>
       </div>
     </div>

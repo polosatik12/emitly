@@ -32,7 +32,9 @@ export default function AppLayout() {
         <main className="flex-1 min-w-0 overflow-y-auto">
           <Outlet />
         </main>
-        <StockLeadersWidget />
+        <div className="hidden xl:block">
+          <StockLeadersWidget />
+        </div>
       </div>
       <WelcomeModal />
       <TrialPaywallModal />

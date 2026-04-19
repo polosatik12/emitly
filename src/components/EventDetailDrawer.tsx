@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ArrowLeft, BellOff, Search, SlidersHorizontal, TrendingUp, Clock, ChevronRight, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowLeft, BellOff, Search, SlidersHorizontal, TrendingUp, Clock, ChevronRight, X, Maximize2, Minimize2 } from "lucide-react";
 import { Drawer, DrawerContent, DrawerOverlay } from "@/components/ui/drawer";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -40,12 +40,12 @@ const companyData: Record<string, {
   cap: string;
   tradingViewSymbol: string;
 }> = {
-  TATNP: { name: "Татнефть-п", ticker: "TATNP", logo: "Т", logoColor: "#2C3E50", pe: "5.1", pb: "1.20", evEbitda: "3.8", ndEbitda: "-0.3", price: "583,50", changePercent: "+1.24", isPositive: true, cap: "1 370 млрд", tradingViewSymbol: "MOEX:TATNP" },
-  TATN: { name: "Татнефть", ticker: "TATN", logo: "Т", logoColor: "#34495E", pe: "5.3", pb: "1.25", evEbitda: "3.9", ndEbitda: "-0.2", price: "612,80", changePercent: "+0.87", isPositive: true, cap: "1 430 млрд", tradingViewSymbol: "MOEX:TATN" },
-  LKON: { name: "Лукойл", ticker: "LKOH", logo: "Л", logoColor: "#C0392B", pe: "4.8", pb: "0.90", evEbitda: "2.9", ndEbitda: "-0.5", price: "7 245,00", changePercent: "-0.32", isPositive: false, cap: "4 720 млрд", tradingViewSymbol: "MOEX:LKOH" },
-  GAZP: { name: "Газпром", ticker: "GAZP", logo: "Г", logoColor: "#2980B9", pe: "3.2", pb: "0.35", evEbitda: "3.1", ndEbitda: "1.2", price: "152,36", changePercent: "-0.58", isPositive: false, cap: "3 610 млрд", tradingViewSymbol: "MOEX:GAZP" },
-  SBER: { name: "Сбербанк", ticker: "SBER", logo: "С", logoColor: "#00B856", pe: "4.1", pb: "1.10", evEbitda: "—", ndEbitda: "—", price: "303,45", changePercent: "+0.92", isPositive: true, cap: "6 830 млрд", tradingViewSymbol: "MOEX:SBER" },
-  YNDX: { name: "Яндекс", ticker: "YNDX", logo: "Я", logoColor: "#FC3F1D", pe: "28.5", pb: "7.20", evEbitda: "15.3", ndEbitda: "0.8", price: "4 128,00", changePercent: "+1.56", isPositive: true, cap: "1 490 млрд", tradingViewSymbol: "MOEX:YNDX" },
+  TATNP: { name: "Татнефть-п", ticker: "TATNP", logo: "Т", logoColor: "#2C3E50", pe: "5.1", pb: "1.20", evEbitda: "3.8", ndEbitda: "-0.3", price: "583,50", changePercent: "+1.24", isPositive: true, cap: "1 370 млрд", tradingViewSymbol: "RUS:TATNP" },
+  TATN: { name: "Татнефть", ticker: "TATN", logo: "Т", logoColor: "#34495E", pe: "5.3", pb: "1.25", evEbitda: "3.9", ndEbitda: "-0.2", price: "612,80", changePercent: "+0.87", isPositive: true, cap: "1 430 млрд", tradingViewSymbol: "RUS:TATN" },
+  LKON: { name: "Лукойл", ticker: "LKOH", logo: "Л", logoColor: "#C0392B", pe: "4.8", pb: "0.90", evEbitda: "2.9", ndEbitda: "-0.5", price: "7 245,00", changePercent: "-0.32", isPositive: false, cap: "4 720 млрд", tradingViewSymbol: "RUS:LKOH" },
+  GAZP: { name: "Газпром", ticker: "GAZP", logo: "Г", logoColor: "#2980B9", pe: "3.2", pb: "0.35", evEbitda: "3.1", ndEbitda: "1.2", price: "152,36", changePercent: "-0.58", isPositive: false, cap: "3 610 млрд", tradingViewSymbol: "RUS:GAZP" },
+  SBER: { name: "Сбербанк", ticker: "SBER", logo: "С", logoColor: "#00B856", pe: "4.1", pb: "1.10", evEbitda: "—", ndEbitda: "—", price: "303,45", changePercent: "+0.92", isPositive: true, cap: "6 830 млрд", tradingViewSymbol: "RUS:SBER" },
+  YNDX: { name: "Яндекс", ticker: "YNDX", logo: "Я", logoColor: "#FC3F1D", pe: "28.5", pb: "7.20", evEbitda: "15.3", ndEbitda: "0.8", price: "4 128,00", changePercent: "+1.56", isPositive: true, cap: "1 490 млрд", tradingViewSymbol: "RUS:YNDX" },
 };
 
 const mockNews = [
@@ -56,7 +56,13 @@ const mockNews = [
 
 export default function EventDetailDrawer({ open, onClose, event }: EventDetailDrawerProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [fullscreen, setFullscreen] = useState(false);
   const isMobile = useIsMobile();
+
+  // Сбрасываем fullscreen при закрытии модалки
+  useEffect(() => {
+    if (!open) setFullscreen(false);
+  }, [open]);
 
   if (!event) return null;
 
@@ -73,7 +79,7 @@ export default function EventDetailDrawer({ open, onClose, event }: EventDetailD
     changePercent: "0.00",
     isPositive: true,
     cap: "—",
-    tradingViewSymbol: `MOEX:${event.ticker}`,
+    tradingViewSymbol: `RUS:${event.ticker}`,
   };
 
   const metrics = [
@@ -84,7 +90,7 @@ export default function EventDetailDrawer({ open, onClose, event }: EventDetailD
   ];
 
   const innerContent = (
-    <div className={isMobile ? "overflow-y-auto max-h-[90vh]" : "overflow-y-auto max-h-[85vh]"}>
+    <div className={isMobile ? "overflow-y-auto max-h-[90vh]" : `overflow-y-auto ${fullscreen ? "max-h-[calc(100vh-32px)]" : "max-h-[85vh]"}`}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 pb-2 pt-2">
             <button onClick={onClose} className="p-1 active:scale-95 transition-transform">
@@ -106,9 +112,25 @@ export default function EventDetailDrawer({ open, onClose, event }: EventDetailD
                 <p className="text-[12px] text-muted-foreground leading-none mt-0.5">{company.ticker}</p>
               </div>
             </div>
-            <button className="p-1 active:scale-95 transition-transform">
-              <BellOff className="h-[18px] w-[18px] text-muted-foreground" strokeWidth={1.8} />
-            </button>
+            <div className="flex items-center gap-1">
+              {!isMobile && (
+                <button
+                  onClick={() => setFullscreen((v) => !v)}
+                  className="p-1.5 rounded-lg hover:bg-muted active:scale-95 transition-all"
+                  title={fullscreen ? "Свернуть" : "Развернуть"}
+                  aria-label={fullscreen ? "Свернуть" : "Развернуть"}
+                >
+                  {fullscreen ? (
+                    <Minimize2 className="h-[18px] w-[18px] text-muted-foreground" strokeWidth={1.8} />
+                  ) : (
+                    <Maximize2 className="h-[18px] w-[18px] text-muted-foreground" strokeWidth={1.8} />
+                  )}
+                </button>
+              )}
+              <button className="p-1 active:scale-95 transition-transform">
+                <BellOff className="h-[18px] w-[18px] text-muted-foreground" strokeWidth={1.8} />
+              </button>
+            </div>
           </div>
 
           {/* Financial metrics chips */}
@@ -230,9 +252,16 @@ export default function EventDetailDrawer({ open, onClose, event }: EventDetailD
         onClick={onClose}
       />
       <div
-        className={`fixed inset-0 z-50 flex items-center justify-center p-6 transition-opacity duration-300 ${open ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-300 ${
+          fullscreen ? "p-4" : "p-6"
+        } ${open ? "opacity-100" : "pointer-events-none opacity-0"}`}
       >
-        <div className="w-full max-w-[700px] rounded-2xl bg-card shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div
+          className={`w-full bg-card shadow-xl transition-all duration-300 ${
+            fullscreen ? "max-w-none h-[calc(100vh-32px)] rounded-2xl" : "max-w-[700px] rounded-2xl"
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
           {innerContent}
         </div>
       </div>

@@ -9,7 +9,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 
-type Step = "form" | "otp-register";
+type Step = "form" | "otp-register" | "forgot-email" | "forgot-otp" | "forgot-newpass";
 
 // Telegram Login Widget callback data
 interface TelegramLoginData {
@@ -29,8 +29,10 @@ export default function AuthPage() {
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [otpCode, setOtpCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [tgLoading, setTgLoading] = useState(false);
   const [botUsername, setBotUsername] = useState<string | null>(null);
   const [botId, setBotId] = useState<string | null>(null);
@@ -111,31 +113,118 @@ export default function AuthPage() {
   }, [navigate]);
 
   const handleTelegramLogin = () => {
-    if (!botUsername || !botId) {
+    if (!botId) {
       toast.error("Бот Telegram ещё загружается, попробуйте снова");
       return;
     }
-    // Use emitly.ru as the authorized domain for Telegram Login Widget
-    const tgDomain = "https://emitly.ru";
-    const returnUrl = `${tgDomain}/auth`;
-    const authUrl = `https://oauth.telegram.org/auth?bot_id=${botId}&origin=${encodeURIComponent(tgDomain)}&embed=0&request_access=write&return_to=${encodeURIComponent(returnUrl)}`;
-    
+
+    // Используем текущий origin — он должен быть добавлен в /setdomain у @BotFather.
+    // Применяем return_to: Telegram редиректит сам попап на наш URL с tgAuthResult в hash,
+    // а родительская страница (тоже на /auth) подхватит данные через storage event либо
+    // мы прочитаем их прямо из попапа перед его закрытием.
+    const currentOrigin = window.location.origin;
+    const returnTo = `${currentOrigin}/auth`;
+
+    const authUrl =
+      `https://oauth.telegram.org/auth` +
+      `?bot_id=${botId}` +
+      `&origin=${encodeURIComponent(currentOrigin)}` +
+      `&return_to=${encodeURIComponent(returnTo)}` +
+      `&embed=0` +
+      `&request_access=write`;
+
     const width = 550;
     const height = 470;
-    const left = (window.screen.width - width) / 2;
-    const top = (window.screen.height - height) / 2;
-    
-    const popup = window.open(authUrl, "telegram_auth", `width=${width},height=${height},left=${left},top=${top}`);
-    
-    // Listen for message from popup
+    const left = Math.max(0, (window.screen.width - width) / 2);
+    const top = Math.max(0, (window.screen.height - height) / 2);
+
+    setTgLoading(true);
+
+    const popup = window.open(
+      authUrl,
+      "telegram_auth",
+      `width=${width},height=${height},left=${left},top=${top}`,
+    );
+
+    if (!popup) {
+      setTgLoading(false);
+      toast.error("Браузер заблокировал всплывающее окно. Разрешите попапы для этого сайта");
+      return;
+    }
+
+    let handled = false;
+
+    // Способ 1: postMessage (если Telegram пришлёт его с правильным origin)
     const handleMessage = (event: MessageEvent) => {
-      if (event.origin === "https://oauth.telegram.org" && event.data?.event === "auth_result") {
-        handleTelegramAuth(event.data.result);
-        popup?.close();
-        window.removeEventListener("message", handleMessage);
+      if (event.origin !== "https://oauth.telegram.org") return;
+      let payload: any = event.data;
+      if (typeof payload === "string") {
+        try { payload = JSON.parse(payload); } catch { return; }
+      }
+      if (payload?.event === "auth_result" && payload.result) {
+        handled = true;
+        cleanup();
+        try { popup.close(); } catch {}
+        handleTelegramAuth(payload.result as TelegramLoginData);
+      } else if (payload?.event === "unauthorized" || payload?.event === "auth_user_declined") {
+        handled = true;
+        cleanup();
+        try { popup.close(); } catch {}
+        toast.error("Авторизация в Telegram отменена");
       }
     };
     window.addEventListener("message", handleMessage);
+
+    // Способ 2: читаем URL попапа (после return_to он будет на нашем домене с tgAuthResult)
+    const urlPoll = setInterval(() => {
+      if (handled) return;
+      try {
+        if (popup.closed) {
+          cleanup();
+          setTgLoading(false);
+          return;
+        }
+        // same-origin доступ возможен только когда попап вернулся на наш домен
+        const popupHref = popup.location.href;
+        if (popupHref && popupHref.includes("tgAuthResult=")) {
+          const hashStr = popup.location.hash.startsWith("#")
+            ? popup.location.hash.slice(1)
+            : popup.location.hash;
+          const params = new URLSearchParams(hashStr);
+          const resultStr = params.get("tgAuthResult");
+          if (resultStr) {
+            handled = true;
+            try {
+              // Telegram использует base64url-вариант, но также передаёт JSON в URI-encoded виде
+              let decoded = decodeURIComponent(resultStr);
+              // Если это base64 (без { в начале) — декодируем
+              if (!decoded.trim().startsWith("{")) {
+                const b64 = decoded.replace(/-/g, "+").replace(/_/g, "/");
+                const padded = b64 + "===".slice((b64.length + 3) % 4);
+                decoded = atob(padded);
+              }
+              const user = JSON.parse(decoded);
+              cleanup();
+              try { popup.close(); } catch {}
+              handleTelegramAuth(user as TelegramLoginData);
+            } catch (e) {
+              console.error("Failed to parse tgAuthResult:", e);
+              cleanup();
+              try { popup.close(); } catch {}
+              setTgLoading(false);
+              toast.error("Не удалось обработать ответ Telegram");
+            }
+          }
+        }
+      } catch {
+        // cross-origin — попап ещё на oauth.telegram.org, ждём
+      }
+    }, 400);
+
+    function cleanup() {
+      clearInterval(urlPoll);
+      window.removeEventListener("message", handleMessage);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -213,6 +302,278 @@ export default function AuthPage() {
       setLoading(false);
     }
   };
+
+  const handleSendForgotOtp = async () => {
+    if (!email) {
+      toast.error("Введите email");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error: otpError } = await supabase.functions.invoke("send-otp", {
+        body: { email },
+      });
+      if (otpError) throw new Error(otpError.message || "Не удалось отправить код");
+      if (data?.error) throw new Error(data.error);
+      toast.success("Код отправлен на " + email);
+      setOtpCode("");
+      setStep("forgot-otp");
+    } catch (error: any) {
+      toast.error(error.message || "Не удалось отправить код");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyForgotOtp = async () => {
+    if (otpCode.length !== 4) return;
+    setLoading(true);
+    try {
+      const { data, error: verifyError } = await supabase.functions.invoke("verify-otp", {
+        body: { email, code: otpCode },
+      });
+      if (verifyError) throw new Error(verifyError.message || "Ошибка проверки кода");
+      if (data?.error) throw new Error(data.error);
+      // Re-issue a fresh code so reset-password edge function can verify it once more
+      const { error: reErr } = await supabase.functions.invoke("send-otp", {
+        body: { email },
+      });
+      if (reErr) throw new Error(reErr.message);
+      toast.success("Код подтверждён. Проверьте почту — мы отправили новый одноразовый код для смены пароля");
+      setOtpCode("");
+      setStep("forgot-newpass");
+    } catch (error: any) {
+      toast.error(error.message || "Неверный код");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (otpCode.length !== 4) {
+      toast.error("Введите 4-значный код из письма");
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error("Пароль должен быть не менее 6 символов");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("reset-password", {
+        body: { email, code: otpCode, newPassword },
+      });
+      if (error) throw new Error(error.message || "Не удалось сменить пароль");
+      if (data?.error) throw new Error(data.error);
+
+      toast.success("Пароль обновлён. Выполняем вход…");
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
+        email,
+        password: newPassword,
+      });
+      if (signInErr) {
+        // Не критично — пусть пользователь войдёт сам
+        setStep("form");
+        setMode("login");
+        setPassword("");
+        setNewPassword("");
+        setOtpCode("");
+        toast.message("Войдите с новым паролем");
+        return;
+      }
+      navigate("/news");
+    } catch (error: any) {
+      toast.error(error.message || "Ошибка смены пароля");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ---- OTP for password reset (verification step) ----
+  if (step === "forgot-otp") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="w-full max-w-[400px]">
+          <button
+            onClick={() => { setStep("forgot-email"); setOtpCode(""); }}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Назад
+          </button>
+
+          <div className="text-center mb-8">
+            <div className="text-2xl font-bold mb-2">
+              <span className="text-primary">Emit</span>
+              <span className="text-foreground">ly</span>
+            </div>
+            <p className="text-muted-foreground">Введите код из письма</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Мы отправили 4-значный код на{" "}
+              <span className="text-foreground font-medium">{email}</span>
+            </p>
+          </div>
+
+          <div className="flex justify-center mb-6">
+            <InputOTP maxLength={4} value={otpCode} onChange={(v) => setOtpCode(v)}>
+              <InputOTPGroup>
+                <InputOTPSlot index={0} />
+                <InputOTPSlot index={1} />
+                <InputOTPSlot index={2} />
+                <InputOTPSlot index={3} />
+              </InputOTPGroup>
+            </InputOTP>
+          </div>
+
+          <button
+            onClick={handleVerifyForgotOtp}
+            disabled={loading || otpCode.length !== 4}
+            className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            {loading ? "Проверка..." : "Подтвердить"}
+          </button>
+
+          <p className="text-center text-sm text-muted-foreground mt-4">
+            Не получили код?{" "}
+            <button
+              onClick={handleSendForgotOtp}
+              disabled={loading}
+              className="text-primary font-medium hover:underline disabled:opacity-50"
+            >
+              Отправить повторно
+            </button>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- Set new password ----
+  if (step === "forgot-newpass") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="w-full max-w-[400px]">
+          <button
+            onClick={() => { setStep("forgot-otp"); setNewPassword(""); }}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Назад
+          </button>
+
+          <div className="text-center mb-8">
+            <div className="text-2xl font-bold mb-2">
+              <span className="text-primary">Emit</span>
+              <span className="text-foreground">ly</span>
+            </div>
+            <p className="text-muted-foreground">Новый пароль</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Введите новый код из письма и придумайте новый пароль для{" "}
+              <span className="text-foreground font-medium">{email}</span>
+            </p>
+          </div>
+
+          <div className="flex justify-center mb-4">
+            <InputOTP maxLength={4} value={otpCode} onChange={(v) => setOtpCode(v)}>
+              <InputOTPGroup>
+                <InputOTPSlot index={0} />
+                <InputOTPSlot index={1} />
+                <InputOTPSlot index={2} />
+                <InputOTPSlot index={3} />
+              </InputOTPGroup>
+            </InputOTP>
+          </div>
+
+          <div className="relative mb-4">
+            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type={showNewPassword ? "text" : "password"}
+              placeholder="Новый пароль (минимум 6 символов)"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              minLength={6}
+              className="w-full bg-card border border-border rounded-xl pl-10 pr-11 py-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+            />
+            <button
+              type="button"
+              onClick={() => setShowNewPassword((v) => !v)}
+              aria-label={showNewPassword ? "Скрыть пароль" : "Показать пароль"}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+
+          <button
+            onClick={handleResetPassword}
+            disabled={loading || otpCode.length !== 4 || newPassword.length < 6}
+            className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            {loading ? "Сохранение..." : "Сменить пароль"}
+          </button>
+
+          <p className="text-center text-sm text-muted-foreground mt-4">
+            Не получили код?{" "}
+            <button
+              onClick={handleSendForgotOtp}
+              disabled={loading}
+              className="text-primary font-medium hover:underline disabled:opacity-50"
+            >
+              Отправить повторно
+            </button>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- Forgot password: enter email ----
+  if (step === "forgot-email") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="w-full max-w-[400px]">
+          <button
+            onClick={() => { setStep("form"); setOtpCode(""); }}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Назад
+          </button>
+
+          <div className="text-center mb-8">
+            <div className="text-2xl font-bold mb-2">
+              <span className="text-primary">Emit</span>
+              <span className="text-foreground">ly</span>
+            </div>
+            <p className="text-muted-foreground">Восстановление пароля</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Укажите email — мы пришлём 4-значный код для смены пароля
+            </p>
+          </div>
+
+          <div className="relative mb-4">
+            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full bg-card border border-border rounded-xl pl-10 pr-4 py-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+            />
+          </div>
+
+          <button
+            onClick={handleSendForgotOtp}
+            disabled={loading || !email}
+            className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            {loading ? "Отправка..." : "Отправить код"}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (step === "otp-register") {
     return (
@@ -364,6 +725,18 @@ export default function AuthPage() {
             {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         </div>
+
+        {mode === "login" && (
+          <div className="flex justify-end -mt-1">
+            <button
+              type="button"
+              onClick={() => { setStep("forgot-email"); setOtpCode(""); setNewPassword(""); }}
+              className="text-xs text-primary font-medium hover:underline"
+            >
+              Забыли пароль?
+            </button>
+          </div>
+        )}
 
         <button
           type="submit"

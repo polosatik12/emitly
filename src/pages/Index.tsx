@@ -1,3 +1,4 @@
+import { Navigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import NewsPage from "@/pages/NewsPage";
 import LandingPage from "@/pages/LandingPage";
@@ -32,13 +33,17 @@ const Index = () => {
     );
   }
 
-  if (isMobile || isTelegram || !!session) {
+  if (isMobile || isTelegram) {
     return (
       <div className="bg-background min-h-screen">
         <NewsPage />
         <BottomTabBar />
       </div>
     );
+  }
+
+  if (session) {
+    return <Navigate to="/news" replace />;
   }
 
   return <LandingPage />;

@@ -12,7 +12,7 @@ export function BottomTabBar() {
   const navigate = useNavigate();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border flex items-center justify-around h-[52px] z-50 max-w-lg mx-auto">
+    <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border flex items-center justify-around h-[52px] z-50 max-w-lg md:max-w-3xl mx-auto">
       {tabs.map((tab) => {
         const isActive = location.pathname === tab.path;
         return (

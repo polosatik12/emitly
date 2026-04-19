@@ -85,18 +85,44 @@ Deno.serve(async (req) => {
   // GET → return bot username for widget rendering
   if (req.method === "GET") {
     try {
-      const res = await fetch(`https://api.telegram.org/bot${botToken}/getMe`);
-      const json = await res.json();
-      if (!json.ok) throw new Error("getMe failed");
+      const res = await fetch(`https://api.telegram.org/bot${botToken}/getMe`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+      const text = await res.text();
+      let json: any = null;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        console.error("telegram-widget-auth getMe: non-JSON response", res.status, text.slice(0, 200));
+      }
+
+      if (!res.ok || !json?.ok) {
+        console.error("telegram-widget-auth getMe failed", {
+          status: res.status,
+          body: text.slice(0, 300),
+        });
+        return new Response(
+          JSON.stringify({
+            error: "Failed to get bot info",
+            status: res.status,
+            details: json?.description ?? text.slice(0, 200),
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
       return new Response(
         JSON.stringify({ bot_username: json.result.username, bot_id: json.result.id }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     } catch (e) {
-      return new Response(JSON.stringify({ error: "Failed to get bot info" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const message = e instanceof Error ? e.message : "Unknown error";
+      console.error("telegram-widget-auth getMe exception:", message);
+      return new Response(
+        JSON.stringify({ error: "Failed to get bot info", details: message }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
   }
 

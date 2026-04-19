@@ -37,8 +37,8 @@ const plans = [
   {
     id: "base",
     name: "Base",
-    monthlyPrice: 10,
-    yearlyPrice: 100,
+    monthlyPrice: 199,
+    yearlyPrice: 1990,
     description: "Для начинающих инвесторов",
     icon: Zap,
     iconColor: "text-blue-500",
@@ -63,8 +63,8 @@ const plans = [
   {
     id: "premium",
     name: "Premium",
-    monthlyPrice: 20,
-    yearlyPrice: 200,
+    monthlyPrice: 299,
+    yearlyPrice: 2990,
     description: "Для активных инвесторов",
     icon: Sparkles,
     iconColor: "text-[hsl(160,84%,39%)]",
@@ -337,7 +337,7 @@ export default function ServiceCatalogPage() {
           {plans.map((plan) => {
             const isYearly = billingPeriod === "year" && !plan.isTrial;
             const price = plan.isTrial ? 0 : (isYearly ? plan.yearlyPrice : plan.monthlyPrice);
-            const period = plan.isTrial ? "48 часов" : (isYearly ? "год" : "месяц");
+            const period = plan.isTrial ? "7 дней" : (isYearly ? "год" : "месяц");
             const monthlyTotal = plan.monthlyPrice * 12;
             const saving = monthlyTotal - plan.yearlyPrice;
             const Icon = plan.icon;

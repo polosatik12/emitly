@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Share2, CalendarDays, ExternalLink, TrendingUp, TrendingDown, Bookmark, BookmarkCheck, Bell, Heart, MessageCircle, Users, LogIn, X, Send } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNewsComments, useNewsBookmark, useNewsVotes } from "@/hooks/useNewsInteractions";
 import { useEmitterSubscriptions } from "@/hooks/useEmitterSubscriptions";
+import { useMoexPrices, formatPrice } from "@/hooks/useMoexPrices";
 import { supabase } from "@/lib/supabaseProxy";
 import { getEmitterByTicker } from "@/data/emitters";
 
@@ -48,6 +50,13 @@ interface NewsDetailDrawerProps {
 
 export default function NewsDetailDrawer({ open, onClose, news }: NewsDetailDrawerProps) {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
+
+  const goToEmitter = () => {
+    if (!tickerUp) return;
+    onClose();
+    setTimeout(() => navigate(`/emitter/${tickerUp}`), 50);
+  };
   const [user, setUser] = useState<{ id: string } | null>(null);
   const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -58,6 +67,7 @@ export default function NewsDetailDrawer({ open, onClose, news }: NewsDetailDraw
   const { isBookmarked, toggleBookmark } = useNewsBookmark(open ? newsId : null);
   const { userVote, vote, bullPercent, bearPercent, totalVotes } = useNewsVotes(open ? newsId : null);
   const { isSubscribed, subscribe, unsubscribe } = useEmitterSubscriptions();
+  const { prices: moexPrices } = useMoexPrices();
   const tickerUp = (news?.ticker || "").toUpperCase();
   const subscribed = !!tickerUp && isSubscribed(tickerUp);
 
@@ -85,7 +95,13 @@ export default function NewsDetailDrawer({ open, onClose, news }: NewsDetailDraw
   if (!news) return null;
 
   const logo = getEmitterByTicker(news.ticker)?.logo;
-  const isPositive = news.priceChangePercent >= 0;
+
+  // Live MOEX котировки имеют приоритет над сохранёнными в БД (где обычно 0).
+  const live = moexPrices[tickerUp];
+  const livePrice = live?.price ?? news.price;
+  const liveChange = live?.change ?? news.priceChange;
+  const livePct = live?.changePercent ?? news.priceChangePercent;
+  const isPositive = livePct >= 0;
 
   const handleSubmitComment = async () => {
     if (!commentText.trim() || submitting) return;
@@ -146,16 +162,18 @@ export default function NewsDetailDrawer({ open, onClose, news }: NewsDetailDraw
       <div className="pt-2 pb-0">
         <div className="flex items-center gap-3">
           {logo && (
-            <img src={logo} alt={news.ticker} className="h-11 w-11 shrink-0 rounded-full object-cover" />
+            <button onClick={goToEmitter} className="shrink-0 active:scale-95 transition-transform" aria-label={`Открыть эмитента ${news.ticker}`}>
+              <img src={logo} alt={news.ticker} className="h-11 w-11 rounded-full object-cover" />
+            </button>
           )}
-          <div className="min-w-0 flex-1">
+          <button onClick={goToEmitter} className="min-w-0 flex-1 text-left active:opacity-80 transition-opacity">
             <div className="text-[14.5px] font-bold leading-tight text-foreground">{news.companyName}</div>
             <div className="mt-1 text-[12px] leading-none text-muted-foreground">{news.ticker} · {news.sector}</div>
-          </div>
+          </button>
           <div className="text-right">
-            <div className="text-[15px] font-bold leading-tight text-foreground">{news.price} ₽</div>
+            <div className="text-[15px] font-bold leading-tight text-foreground">{formatPrice(livePrice)}</div>
             <div className={`mt-1 text-[12.5px] font-semibold leading-none ${isPositive ? "text-[hsl(var(--news-positive))]" : "text-[hsl(var(--news-negative))]"}`}>
-              {isPositive ? "+" : ""}{news.priceChangePercent}%
+              {isPositive ? "+" : ""}{livePct.toFixed(2)}%
             </div>
           </div>
         </div>
@@ -208,12 +226,14 @@ export default function NewsDetailDrawer({ open, onClose, news }: NewsDetailDraw
         <p className="text-[12px] font-medium text-muted-foreground">Влияние на акции</p>
         <div className="mt-3 flex items-center gap-3">
           {logo && (
-            <img src={logo} alt={news.ticker} className="h-8 w-8 shrink-0 rounded-full object-cover" />
+            <button onClick={goToEmitter} className="shrink-0 active:scale-95 transition-transform" aria-label={`Открыть эмитента ${news.ticker}`}>
+              <img src={logo} alt={news.ticker} className="h-8 w-8 rounded-full object-cover" />
+            </button>
           )}
-          <span className="text-[16px] font-semibold text-foreground">{news.ticker}</span>
+          <button onClick={goToEmitter} className="text-[16px] font-semibold text-foreground active:opacity-80 transition-opacity">{news.ticker}</button>
           <span className={`ml-auto inline-flex items-center gap-1 text-[13px] font-semibold ${isPositive ? "text-[hsl(var(--news-positive))]" : "text-[hsl(var(--news-negative))]"}`}>
             {isPositive ? <TrendingUp className="h-3 w-3" strokeWidth={2.2} /> : <TrendingDown className="h-3 w-3" strokeWidth={2.2} />}
-            {isPositive ? "+" : ""}{news.priceChange} ₽ ({isPositive ? "+" : ""}{news.priceChangePercent}%)
+            {isPositive ? "+" : ""}{liveChange.toFixed(2)} ₽ ({isPositive ? "+" : ""}{livePct.toFixed(2)}%)
           </span>
         </div>
       </div>

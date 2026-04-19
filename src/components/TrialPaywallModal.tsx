@@ -9,8 +9,8 @@ const PAYWALL_PLANS = [
   {
     id: "base",
     name: "Base",
-    monthlyPrice: 10,
-    yearlyPrice: 100,
+    monthlyPrice: 199,
+    yearlyPrice: 1990,
     description: "Для начинающих инвесторов",
     icon: Zap,
     iconColor: "text-blue-500",
@@ -21,8 +21,8 @@ const PAYWALL_PLANS = [
   {
     id: "premium",
     name: "Premium",
-    monthlyPrice: 20,
-    yearlyPrice: 200,
+    monthlyPrice: 299,
+    yearlyPrice: 2990,
     description: "Для активных инвесторов",
     icon: Sparkles,
     iconColor: "text-[hsl(160,84%,39%)]",

@@ -2,7 +2,8 @@ import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import React from "react";
 import { Search, SlidersHorizontal, Clock, TrendingUp, TrendingDown, ChevronRight } from "lucide-react";
 import { CategoryBadge } from "@/components/CategoryBadge";
-import { FiltersModal } from "@/components/FiltersModal";
+import { FiltersModal, DEFAULT_FILTERS, type FilterState } from "@/components/FiltersModal";
+import { applyNewsFilters, activeFiltersCount } from "@/lib/newsFilters";
 import NewsDetailDrawer from "@/components/NewsDetailDrawer";
 import { GreenlandCircle } from "@/components/GreenlandCircle";
 import { HotNewsCircle } from "@/components/HotNewsCircle";
@@ -12,12 +13,7 @@ import { useReadHotNews } from "@/hooks/useReadHotNews";
 import { useEmitterSubscriptions } from "@/hooks/useEmitterSubscriptions";
 import { getEmitterByTicker } from "@/data/emitters";
 import { useNavigate } from "react-router-dom";
-
-import logoSber from "@/assets/logo-sber.jpg";
-import logoSmlt from "@/assets/logo-smlt.png";
-import logoPosi from "@/assets/logo-posi.png";
-import logoGazp from "@/assets/logo-gazp.png";
-import logoLkoh from "@/assets/logo-lkoh.png";
+import { TriggerChips } from "@/components/TriggerChips";
 
 const categories = ["Все", "Отчётность", "Дивиденды", "Регуляторика", "Сделки"];
 
@@ -36,19 +32,11 @@ const categoryBottomColors: Record<string, string> = {
   "Отчёты": "#3498DB",
 };
 
-const tickerLogos: Record<string, string> = {
-  "SBER": logoSber,
-  "SMLT": logoSmlt,
-  "POSI": logoPosi,
-  "GAZP": logoGazp,
-  "LKOH": logoLkoh,
-};
-
 // NewsItem type imported from useNews
 
 /* ── Hero card (first news, large) ── */
 const HeroCard = React.memo(function HeroCard({ news, onClick, read = false }: { news: NewsItem; onClick: () => void; read?: boolean }) {
-  const logo = tickerLogos[news.ticker];
+  const logo = getEmitterByTicker(news.ticker)?.logo;
   const bottomColor = categoryBottomColors[news.category] || "#BDC3C7";
 
   return (
@@ -109,7 +97,7 @@ const HeroCard = React.memo(function HeroCard({ news, onClick, read = false }: {
 
 /* ── Small card (grid items) ── */
 const SmallCard = React.memo(function SmallCard({ news, onClick, read = false }: { news: NewsItem; onClick: () => void; read?: boolean }) {
-  const logo = tickerLogos[news.ticker];
+  const logo = getEmitterByTicker(news.ticker)?.logo;
   const bottomColor = categoryBottomColors[news.category] || "#BDC3C7";
 
   return (
@@ -177,6 +165,9 @@ export default function DesktopNewsPage() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   const [activeCategory, setActiveCategory] = useState("Все");
+  const [scope, setScope] = useState<"all" | "mine">("all");
+  const [activeTrigger, setActiveTrigger] = useState<string | null>(null);
+  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
@@ -186,17 +177,20 @@ export default function DesktopNewsPage() {
 
   const filteredNews = useMemo(() => {
     const q = debouncedQuery.toLowerCase();
-    return allNews.filter((n) => {
+    const base = allNews.filter((n) => {
+      if (scope === "mine" && !subscriptions.includes(n.ticker)) return false;
       if (activeCategory !== "Все") {
         const mapped = categoryMap[activeCategory];
         if (mapped && n.category !== mapped) return false;
       }
+      if (activeTrigger && !(n.triggerCategories || []).includes(activeTrigger)) return false;
       if (q) {
         return n.title.toLowerCase().includes(q) || n.ticker.toLowerCase().includes(q);
       }
       return true;
     });
-  }, [allNews, debouncedQuery, activeCategory]);
+    return applyNewsFilters(base, filters);
+  }, [allNews, debouncedQuery, activeCategory, scope, subscriptions, filters, activeTrigger]);
 
   const heroNews = filteredNews[0] ?? null;
   const gridNews = filteredNews.slice(1);
@@ -224,9 +218,30 @@ export default function DesktopNewsPage() {
         ))}
       </div>
 
-      {/* Categories */}
+      {/* Scope + Categories — единый ряд */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
-        {categories.map((cat) => (
+        <button
+          onClick={() => setScope("all")}
+          className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-colors ${
+            scope === "all"
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground hover:bg-accent"
+          }`}
+        >
+          Все
+        </button>
+        <button
+          onClick={() => setScope("mine")}
+          className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-colors ${
+            scope === "mine"
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground hover:bg-accent"
+          }`}
+        >
+          Мои
+        </button>
+        <div className="w-px h-5 bg-border mx-1" />
+        {categories.filter((c) => c !== "Все").map((cat) => (
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
@@ -239,6 +254,11 @@ export default function DesktopNewsPage() {
             {cat}
           </button>
         ))}
+      </div>
+
+      {/* Trigger chips: Peace Deal / Ставка ЦБ / Макро / Отчётность */}
+      <div className="mb-4">
+        <TriggerChips active={activeTrigger} onChange={setActiveTrigger} variant="desktop" />
       </div>
 
       {/* Search + filters */}
@@ -259,6 +279,11 @@ export default function DesktopNewsPage() {
         >
           <SlidersHorizontal className="w-4 h-4" strokeWidth={2} />
           Фильтры
+          {activeFiltersCount(filters) > 0 && (
+            <span className="ml-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold">
+              {activeFiltersCount(filters)}
+            </span>
+          )}
         </button>
       </div>
 
@@ -287,6 +312,15 @@ export default function DesktopNewsPage() {
         </div>
       )}
 
+      {/* Empty state for "Мои" */}
+      {scope === "mine" && filteredNews.length === 0 && (
+        <div className="bg-card border border-border rounded-xl p-8 text-center text-muted-foreground text-sm">
+          {subscriptions.length === 0
+            ? "Вы ещё не подписаны ни на одного эмитента. Откройте профиль компании и нажмите «Подписаться»."
+            : "По вашим подпискам пока нет новостей."}
+        </div>
+      )}
+
       {/* Hero card */}
       {heroNews && (
         <div className="mb-5">
@@ -303,7 +337,12 @@ export default function DesktopNewsPage() {
         </div>
       )}
 
-      <FiltersModal open={filtersOpen} onClose={handleCloseFilters} />
+      <FiltersModal
+        open={filtersOpen}
+        onClose={handleCloseFilters}
+        value={filters}
+        onApply={setFilters}
+      />
       <NewsDetailDrawer open={!!selectedNews} onClose={handleCloseNews} news={selectedNews} />
     </div>
   );

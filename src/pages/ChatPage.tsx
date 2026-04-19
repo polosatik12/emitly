@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Paperclip, Mic, Send, Image, Video, Users } from "lucide-react";
+import { Send, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuthReady } from "@/hooks/useAuthReady";
@@ -116,7 +116,7 @@ export default function ChatPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [message, setMessage] = useState("");
-  const [showAttach, setShowAttach] = useState(false);
+  
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const { user, isAuthReady } = useAuthReady();
@@ -236,7 +236,6 @@ export default function ChatPage() {
       if (error) throw error;
 
       setMessage("");
-      setShowAttach(false);
       await loadMessages(user.id);
     } catch (error) {
       console.error("Failed to send message:", error);
@@ -262,7 +261,7 @@ export default function ChatPage() {
 
   if (isMobile) {
     return (
-      <div className="flex flex-col h-screen max-w-lg mx-auto bg-background">
+      <div className="flex flex-col h-screen max-w-lg md:max-w-3xl mx-auto bg-background">
         <div className="flex items-center justify-between px-4 pt-3 pb-2.5">
           <h1 className="text-[17px] font-bold text-foreground">Общий чат</h1>
           <span className="text-[12px] text-muted-foreground">{messages.length} сообщений</span>
@@ -306,29 +305,8 @@ export default function ChatPage() {
           )}
         </div>
 
-        <div className="fixed bottom-[52px] left-0 right-0 max-w-lg mx-auto bg-muted border-t border-border">
+        <div className="fixed bottom-[52px] left-0 right-0 max-w-lg md:max-w-3xl mx-auto bg-muted border-t border-border">
           <div className="flex items-center gap-2.5 px-3 py-2">
-            <button
-              onClick={() => setShowAttach(!showAttach)}
-              className="w-[36px] h-[36px] rounded-full bg-background border border-border flex items-center justify-center shrink-0"
-              disabled={!user}
-            >
-              <Paperclip className="w-[18px] h-[18px] text-muted-foreground" strokeWidth={1.8} />
-            </button>
-
-            {showAttach && user && (
-              <div className="absolute bottom-[50px] left-3 bg-card rounded-[14px] shadow-lg border border-border py-1.5 px-1 animate-slide-up min-w-[130px]">
-                <button className="flex items-center gap-2.5 px-3 py-2 text-[13.5px] hover:bg-muted rounded-[10px] w-full transition-colors text-foreground">
-                  <Image className="w-[16px] h-[16px]" strokeWidth={1.5} />
-                  Фото
-                </button>
-                <button className="flex items-center gap-2.5 px-3 py-2 text-[13.5px] hover:bg-muted rounded-[10px] w-full transition-colors text-foreground">
-                  <Video className="w-[16px] h-[16px]" strokeWidth={1.5} />
-                  Видео
-                </button>
-              </div>
-            )}
-
             <input
               type="text"
               placeholder={user ? "Сообщение" : "Войдите, чтобы писать в чат"}
@@ -339,18 +317,13 @@ export default function ChatPage() {
               className="flex-1 px-3.5 py-[8px] rounded-full bg-background border border-border text-[13.5px] text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-60"
             />
 
-            {isReadyToSend ? (
-              <button
-                onClick={() => void sendMessage()}
-                className="w-[36px] h-[36px] rounded-full bg-primary flex items-center justify-center shrink-0 active:scale-95 transition-transform"
-              >
-                <Send className="w-[17px] h-[17px] text-primary-foreground" strokeWidth={2} />
-              </button>
-            ) : (
-              <button className="w-[36px] h-[36px] rounded-full bg-background border border-border flex items-center justify-center shrink-0" onClick={!user ? handleLogin : undefined}>
-                <Mic className="w-[18px] h-[18px] text-muted-foreground" strokeWidth={1.8} />
-              </button>
-            )}
+            <button
+              onClick={() => (user ? void sendMessage() : handleLogin())}
+              disabled={user ? !isReadyToSend : false}
+              className="w-[36px] h-[36px] rounded-full bg-primary flex items-center justify-center shrink-0 active:scale-95 transition-transform disabled:opacity-50"
+            >
+              <Send className="w-[17px] h-[17px] text-primary-foreground" strokeWidth={2} />
+            </button>
           </div>
         </div>
       </div>
@@ -413,28 +386,7 @@ export default function ChatPage() {
         </div>
 
         <div className="border-t border-border bg-card px-6 py-3 shrink-0">
-          <div className="max-w-3xl mx-auto flex items-center gap-3 relative">
-            <button
-              onClick={() => setShowAttach(!showAttach)}
-              className="w-[40px] h-[40px] rounded-full bg-muted hover:bg-accent flex items-center justify-center shrink-0 transition-colors"
-              disabled={!user}
-            >
-              <Paperclip className="w-[18px] h-[18px] text-muted-foreground" strokeWidth={1.8} />
-            </button>
-
-            {showAttach && user && (
-              <div className="absolute bottom-[52px] left-0 bg-card rounded-[14px] shadow-lg border border-border py-1.5 px-1 min-w-[150px] z-10">
-                <button className="flex items-center gap-2.5 px-3 py-2.5 text-[14px] hover:bg-muted rounded-[10px] w-full transition-colors text-foreground">
-                  <Image className="w-[16px] h-[16px]" strokeWidth={1.5} />
-                  Фото
-                </button>
-                <button className="flex items-center gap-2.5 px-3 py-2.5 text-[14px] hover:bg-muted rounded-[10px] w-full transition-colors text-foreground">
-                  <Video className="w-[16px] h-[16px]" strokeWidth={1.5} />
-                  Видео
-                </button>
-              </div>
-            )}
-
+          <div className="max-w-3xl mx-auto flex items-center gap-3">
             <input
               type="text"
               placeholder={user ? "Напишите сообщение..." : "Войдите, чтобы писать в чат"}
@@ -445,21 +397,13 @@ export default function ChatPage() {
               className="flex-1 px-4 py-[10px] rounded-xl bg-muted border border-border text-[14px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all disabled:opacity-60"
             />
 
-            {isReadyToSend ? (
-              <button
-                onClick={() => void sendMessage()}
-                className="w-[40px] h-[40px] rounded-full bg-primary flex items-center justify-center shrink-0 hover:bg-primary/90 active:scale-95 transition-all"
-              >
-                <Send className="w-[18px] h-[18px] text-primary-foreground" strokeWidth={2} />
-              </button>
-            ) : (
-              <button
-                className="w-[40px] h-[40px] rounded-full bg-muted hover:bg-accent flex items-center justify-center shrink-0 transition-colors"
-                onClick={!user ? handleLogin : undefined}
-              >
-                <Mic className="w-[18px] h-[18px] text-muted-foreground" strokeWidth={1.8} />
-              </button>
-            )}
+            <button
+              onClick={() => (user ? void sendMessage() : handleLogin())}
+              disabled={user ? !isReadyToSend : false}
+              className="w-[40px] h-[40px] rounded-full bg-primary flex items-center justify-center shrink-0 hover:bg-primary/90 active:scale-95 transition-all disabled:opacity-50"
+            >
+              <Send className="w-[18px] h-[18px] text-primary-foreground" strokeWidth={2} />
+            </button>
           </div>
         </div>
       </div>

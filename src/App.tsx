@@ -17,6 +17,9 @@ import ServiceCatalogPage from "@/pages/ServiceCatalogPage";
 import EmitterProfilePage from "@/pages/EmitterProfilePage";
 import MySourcesPage from "@/pages/MySourcesPage";
 import GreenlandNewsPage from "@/pages/GreenlandNewsPage";
+import AdminSourcesPage from "@/pages/AdminSourcesPage";
+import AdminLoginPage from "@/pages/AdminLoginPage";
+import AdminGuard from "@/components/AdminGuard";
 import NotFound from "./pages/NotFound.tsx";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -32,6 +35,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Index />} />
       <Route path="/auth" element={<AuthPage />} />
+      <Route path="/admin/login" element={<AdminLoginPage />} />
       <Route element={<AppLayout />}>
         <Route path="/news" element={<AdaptiveNewsPage />} />
         <Route path="/news/greenland" element={<GreenlandNewsPage />} />
@@ -42,6 +46,14 @@ function AppRoutes() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/service-catalog" element={<ServiceCatalogPage />} />
         <Route path="/sources" element={<MySourcesPage />} />
+        <Route
+          path="/admin/sources"
+          element={
+            <AdminGuard>
+              <AdminSourcesPage />
+            </AdminGuard>
+          }
+        />
         <Route path="/emitter/:ticker" element={<EmitterProfilePage />} />
       </Route>
       <Route path="*" element={<NotFound />} />
